@@ -38,6 +38,8 @@ Allowed `state`: `healthy`, `degraded`, `unhealthy`, `unknown`, `disabled`.
 
 ## 3. Initial endpoints
 
+Implemented in the current demo: system and health, SSE, nodes (including detail and metrics), services, activity, compute summary/workers, and an empty jobs list. Other endpoints below describe planned work and currently return `404`. All inventory observations are persisted in SQLite; the demo provider refreshes them every 30 seconds. Compute job counts and used/reserved vCPU are demo placeholders, not live scheduler readings.
+
 ### System
 
 - `GET /healthz` - process liveness, no auth-sensitive detail.

@@ -15,6 +15,7 @@ import (
 	"github.com/exposedpudding/oxnetwork/internal/config"
 	"github.com/exposedpudding/oxnetwork/internal/db"
 	"github.com/exposedpudding/oxnetwork/internal/integrations/demo"
+	"github.com/exposedpudding/oxnetwork/internal/inventory"
 )
 
 func main() {
@@ -46,10 +47,30 @@ func main() {
 		os.Exit(1)
 	}
 	defer database.Close()
-	app := &api.Server{DB: database, Source: demo.Provider{}, WebDir: cfg.Server.WebDir, SiteName: cfg.UI.SiteName, Log: log}
+	repo := inventory.Repository{DB: database}
+	provider := demo.Provider{}
+	if err := repo.UpsertSnapshot(context.Background(), provider.Snapshot(time.Now().UTC())); err != nil {
+		log.Error("demo inventory failed", "error", err)
+		os.Exit(1)
+	}
+	app := &api.Server{DB: database, Repo: repo, WebDir: cfg.Server.WebDir, SiteName: cfg.UI.SiteName, Log: log}
 	server := &http.Server{Addr: cfg.Server.Listen, Handler: app.Handler(), ReadHeaderTimeout: 5 * time.Second}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case now := <-ticker.C:
+				if err := repo.UpsertSnapshot(ctx, provider.Snapshot(now.UTC())); err != nil && ctx.Err() == nil {
+					log.Error("demo inventory refresh failed", "error", err)
+				}
+			}
+		}
+	}()
 	go func() {
 		<-ctx.Done()
 		shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)

@@ -21,7 +21,7 @@ Acceptance: one command starts a blank but branded oxnet.work shell and health e
 ## Milestone 1 - demo vertical slice / Overview
 
 - [x] Domain types for Node, Service, Health, Metric, Activity.
-- [ ] SQLite-backed inventory repository layer.
+- [x] SQLite-backed inventory repository layer.
 - [x] Deterministic demo provider.
 - [x] Nodes/services/activity endpoints.
 - [x] SSE event stream.
@@ -29,18 +29,18 @@ Acceptance: one command starts a blank but branded oxnet.work shell and health e
 - [x] Fresh/stale/unknown states.
 - [x] Playwright Overview smoke test.
 
-The initial demo provider serves fixtures through the source interface. Persisted inventory and action/audit behavior remain for later work. This build is read-only and loopback-bound on the host.
+The demo provider now reconciles its fixtures into SQLite at startup and every 30 seconds. Inventory API reads use persisted observations and recompute freshness at request time. Action/audit behavior remains for later work. This build is read-only and loopback-bound on the host.
 
 Acceptance: Overview is fully populated from API data, not frontend constants.
 
 ## Milestone 2 - Compute and Node Detail
 
 - [ ] Worker/job domain.
-- [ ] Compute aggregation endpoint.
+- [x] Read-only demo compute aggregation endpoint.
 - [ ] Placement policy package + tests.
 - [ ] Compute screen.
-- [ ] Node detail endpoints/screens.
-- [ ] Capability model.
+- [-] Node detail endpoints/screens (node and metrics endpoints available; screen pending).
+- [x] Persisted node capability list.
 - [ ] Read-only container/job/log fixtures.
 
 Acceptance: owner can understand aggregate capacity and inspect a worker/node.

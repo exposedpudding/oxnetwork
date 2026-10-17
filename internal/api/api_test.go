@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 	"github.com/exposedpudding/oxnetwork/internal/db"
 	"github.com/exposedpudding/oxnetwork/internal/domain"
 	"github.com/exposedpudding/oxnetwork/internal/integrations/demo"
+	"github.com/exposedpudding/oxnetwork/internal/inventory"
 )
 
 func TestAPIListsDemoDataAndHealth(t *testing.T) {
@@ -20,9 +22,13 @@ func TestAPIListsDemoDataAndHealth(t *testing.T) {
 	}
 	defer database.Close()
 	now := time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)
-	s := &Server{DB: database, Source: demo.Provider{}, SiteName: "Test", Now: func() time.Time { return now }}
+	repo := inventory.Repository{DB: database}
+	if err := repo.UpsertSnapshot(context.Background(), demo.Provider{}.Snapshot(now)); err != nil {
+		t.Fatal(err)
+	}
+	s := &Server{DB: database, Repo: repo, SiteName: "Test", Now: func() time.Time { return now }}
 	h := s.Handler()
-	for _, endpoint := range []string{"/healthz", "/readyz", "/api/v1/system", "/api/v1/nodes", "/api/v1/services", "/api/v1/activity"} {
+	for _, endpoint := range []string{"/healthz", "/readyz", "/api/v1/system", "/api/v1/nodes", "/api/v1/services", "/api/v1/activity", "/api/v1/nodes/demo-worker/metrics", "/api/v1/compute/workers", "/api/v1/compute/summary", "/api/v1/jobs"} {
 		r := httptest.NewRecorder()
 		h.ServeHTTP(r, httptest.NewRequest(http.MethodGet, endpoint, nil))
 		if r.Code != 200 {
@@ -40,12 +46,26 @@ func TestAPIListsDemoDataAndHealth(t *testing.T) {
 	if err := json.Unmarshal(r.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
-	if len(body.Items) != 3 || !body.Items[0].Simulated || body.Items[1].Freshness != "stale" || body.Items[2].Metrics.CPUPercent != nil {
+	if len(body.Items) != 3 || !body.Items[0].Simulated || body.Items[2].Freshness != "stale" || body.Items[1].Metrics.CPUPercent != nil {
 		t.Fatalf("unexpected demo data: %+v", body.Items)
 	}
 	r = httptest.NewRecorder()
 	h.ServeHTTP(r, httptest.NewRequest(http.MethodGet, "/api/v1/nodes/missing", nil))
 	if r.Code != 404 {
 		t.Fatalf("missing node: %d", r.Code)
+	}
+	r = httptest.NewRecorder()
+	h.ServeHTTP(r, httptest.NewRequest(http.MethodGet, "/api/v1/compute/summary", nil))
+	var summary struct {
+		TotalVCPU int    `json:"total_vcpu"`
+		UsedVCPU  int    `json:"used_vcpu"`
+		Simulated bool   `json:"simulated"`
+		Freshness string `json:"freshness"`
+	}
+	if err := json.Unmarshal(r.Body.Bytes(), &summary); err != nil {
+		t.Fatal(err)
+	}
+	if summary.TotalVCPU != 8 || summary.UsedVCPU != 0 || !summary.Simulated || summary.Freshness != "stale" {
+		t.Fatalf("unexpected compute summary: %+v", summary)
 	}
 }

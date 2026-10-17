@@ -18,10 +18,11 @@ chmod 700 secrets
 printf 'PG_PASS=%s\n' "$(openssl rand -base64 36 | tr -d '\n')" > .env
 printf 'AUTHENTIK_SECRET_KEY=%s\n' "$(openssl rand -base64 60 | tr -d '\n')" >> .env
 printf 'OXNET_OIDC_ISSUER_URL=https://auth.oxnet.work/application/o/oxnet-work/\n' >> .env
+printf 'OXNET_OIDC_CLIENT_ID=pending\n' >> .env
 chmod 600 .env
 ```
 
-Those commands create new secrets; preserve them in an encrypted backup. They do not set the OIDC client ID until the Authentik application exists. Do not commit `.env` or `secrets/`.
+Those commands create new secrets; preserve them in an encrypted backup. The `pending` client ID only allows Compose to parse while Authentik starts; replace it with the real client ID before starting oxnet.work. Do not commit `.env` or `secrets/`.
 
 ## Bring up Authentik privately
 

@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: oxnet.work API
   version: 0.1.0
-  description: Initial API contract for the oxnet.work control plane.
+  description: Current read-only demo API. Other planned endpoints are documented separately in docs/API_SPEC.md.
 servers:
   - url: /api/v1
 paths:
@@ -44,37 +44,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Node'
-  /nodes/{nodeId}/actions:
+  /nodes/{nodeId}/metrics:
     get:
-      operationId: listNodeActions
+      operationId: getNodeMetrics
       parameters:
         - $ref: '#/components/parameters/NodeId'
       responses:
         '200':
-          description: Supported action capabilities
-    post:
-      operationId: createNodeAction
-      parameters:
-        - $ref: '#/components/parameters/NodeId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ActionRequest'
-      responses:
-        '202':
-          description: Action accepted
+          description: Latest observed metrics; absent fields mean unavailable
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Action'
+                $ref: '#/components/schemas/Metrics'
   /services:
     get:
       operationId: listServices
       responses:
         '200':
           description: Services list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Service' }
   /services/{serviceId}:
     get:
       operationId: getService
@@ -86,12 +82,24 @@ paths:
       responses:
         '200':
           description: Service
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Service' }
   /activity:
     get:
       operationId: listActivity
       responses:
         '200':
           description: Simulated activity in demo mode
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Activity' }
   /events:
     get:
       operationId: streamEvents
@@ -106,51 +114,40 @@ paths:
       operationId: getComputeSummary
       responses:
         '200':
-          description: Aggregate compute summary
+          description: Demo compute capacity; used and reserved vCPU are zero while jobs are unavailable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ComputeSummary' }
   /compute/workers:
     get:
       operationId: listWorkers
       responses:
         '200':
           description: Compute workers
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Worker' }
   /jobs:
     get:
       operationId: listJobs
       responses:
         '200':
-          description: Jobs
-  /network/graph:
-    get:
-      operationId: getNetworkGraph
-      responses:
-        '200':
-          description: Topology graph
+          description: Empty job list in demo mode; no job provider is connected
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/NetworkGraph'
-  /workflows:
-    get:
-      operationId: listWorkflows
-      responses:
-        '200':
-          description: Workflows
-    post:
-      operationId: createWorkflow
-      responses:
-        '201':
-          description: Workflow created
-  /workflows/{workflowId}/run:
-    post:
-      operationId: runWorkflow
-      parameters:
-        - name: workflowId
-          in: path
-          required: true
-          schema: { type: string }
-      responses:
-        '202':
-          description: Workflow run accepted
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { type: object }
 components:
   parameters:
     NodeId:
@@ -161,11 +158,13 @@ components:
   schemas:
     SystemInfo:
       type: object
-      required: [name, version, server_time]
+      required: [name, site_name, version, server_time, features, demo_mode]
       properties:
         name: { type: string, const: oxnet.work }
+        site_name: { type: string }
         version: { type: string }
         server_time: { type: string, format: date-time }
+        demo_mode: { type: boolean }
         features:
           type: array
           items: { type: string }
@@ -206,6 +205,50 @@ components:
           enum: [fresh, stale, unknown]
         simulated: { type: boolean }
         metrics: { $ref: '#/components/schemas/Metrics' }
+    Service:
+      type: object
+      required: [id, name, health, freshness, simulated]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        health: { $ref: '#/components/schemas/Health' }
+        freshness: { type: string, enum: [fresh, stale, unknown] }
+        simulated: { type: boolean }
+    Activity:
+      type: object
+      required: [id, title, detail, state, occurred_at, simulated]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        detail: { type: string }
+        state: { type: string }
+        occurred_at: { type: string, format: date-time }
+        simulated: { type: boolean }
+    Worker:
+      type: object
+      required: [id, node_id, name, state, vcpu_total, vcpu_used, health, freshness, simulated]
+      properties:
+        id: { type: string }
+        node_id: { type: string }
+        name: { type: string }
+        state: { type: string, enum: [online, draining, offline] }
+        vcpu_total: { type: integer }
+        vcpu_used: { type: integer }
+        health: { $ref: '#/components/schemas/Health' }
+        freshness: { type: string, enum: [fresh, stale, unknown] }
+        simulated: { type: boolean }
+    ComputeSummary:
+      type: object
+      required: [total_vcpu, used_vcpu, reserved_vcpu, active_jobs, queued_jobs, observed_at, freshness, simulated]
+      properties:
+        total_vcpu: { type: integer }
+        used_vcpu: { type: integer }
+        reserved_vcpu: { type: integer }
+        active_jobs: { type: integer }
+        queued_jobs: { type: integer }
+        observed_at: { type: string, format: date-time }
+        freshness: { type: string, enum: [fresh, stale, unknown] }
+        simulated: { type: boolean }
     ActionRequest:
       type: object
       required: [type, idempotency_key]

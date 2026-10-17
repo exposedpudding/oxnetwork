@@ -19,6 +19,7 @@ import (
 	"github.com/exposedpudding/oxnetwork/internal/db"
 	"github.com/exposedpudding/oxnetwork/internal/domain"
 	"github.com/exposedpudding/oxnetwork/internal/inventory"
+	"github.com/exposedpudding/oxnetwork/internal/network"
 )
 
 type Server struct {
@@ -138,6 +139,20 @@ func (s *Server) Handler() http.Handler {
 	})
 	mux.HandleFunc("GET /api/v1/jobs", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"items": []any{}})
+	})
+	mux.HandleFunc("GET /api/v1/network/graph", func(w http.ResponseWriter, r *http.Request) {
+		snapshot, ok := s.snapshot(w, r)
+		if !ok {
+			return
+		}
+		writeJSON(w, http.StatusOK, network.FromSnapshot(snapshot))
+	})
+	mux.HandleFunc("GET /api/v1/network/connections", func(w http.ResponseWriter, r *http.Request) {
+		snapshot, ok := s.snapshot(w, r)
+		if !ok {
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"items": network.FromSnapshot(snapshot).Edges})
 	})
 	mux.HandleFunc("GET /api/v1/events", s.events)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {

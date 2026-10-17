@@ -1,5 +1,5 @@
 // Hand-maintained from specs/openapi.yaml, which now describes only what the Go server implements
-// (/system, /nodes, /nodes/{id}/metrics, /services, /activity, /compute/*, /jobs, /events).
+// (/system, /nodes, /nodes/{id}/metrics, /services, /activity, /compute/*, /jobs, /network/*, /events).
 // Types marked "provisional" are NOT in the spec/server yet (docs/API_SPEC.md planned work) and
 // must be replaced when the spec gains schemas for them.
 
@@ -69,12 +69,14 @@ export interface Action {
   created_at: string;
 }
 
-/** provisional: the network graph endpoint was removed from the spec until implemented; these are the topology renderer's input shapes. */
 export interface GraphNode {
   id: string;
+  resource_id?: string;
   kind: string;
   label: string;
   health?: Health;
+  freshness?: NodeFreshness;
+  simulated?: boolean;
 }
 
 export interface GraphEdge {
@@ -82,6 +84,11 @@ export interface GraphEdge {
   source: string;
   target: string;
   kind: string;
+  observed_at?: string;
+  stale_after_seconds?: number;
+  source_system?: string;
+  freshness?: NodeFreshness;
+  simulated?: boolean;
 }
 
 export interface NetworkGraph {

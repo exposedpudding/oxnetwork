@@ -35,8 +35,11 @@ func TestSnapshotPersistsAcrossReopenAndRecomputesFreshness(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(snapshot.Nodes) != 3 || len(snapshot.Services) != 3 || len(snapshot.Activity) != 2 {
+	if len(snapshot.Nodes) != 3 || len(snapshot.Services) != 3 || len(snapshot.Activity) != 2 || len(snapshot.Connections) != 3 {
 		t.Fatalf("unexpected snapshot sizes: %+v", snapshot)
+	}
+	if snapshot.Connections[1].Freshness != "stale" || !snapshot.Connections[1].Simulated {
+		t.Fatalf("unexpected connection: %+v", snapshot.Connections[1])
 	}
 	if snapshot.Nodes[0].ID != "demo-gateway" || snapshot.Nodes[0].Freshness != "fresh" || !snapshot.Nodes[0].Simulated || len(snapshot.Nodes[0].Capabilities) != 1 {
 		t.Fatalf("unexpected gateway: %+v", snapshot.Nodes[0])

@@ -57,6 +57,6 @@ export function NodeDetailView({ node }: { node: NodeData }) {
       <Card title="Resource use"><div className="metric-stack"><MetricBar label="CPU" value={node.metrics.cpu_percent} /><MetricBar label="RAM" value={node.metrics.ram_percent} /></div><p className="muted-copy">Storage, temperature and latency are not reported by this source.</p></Card>
       <Card title="Capabilities">{node.capabilities.length ? <ul className="capability-list">{node.capabilities.map(capability => <li key={capability}>{capability}</li>)}</ul> : <EmptyState title="No capabilities reported" />}</Card>
     </div>
-    <Card title="More from this node" className="compute-section"><p className="muted-copy">Containers, jobs, connections and logs will appear when read-only integrations are connected. No node actions are available in demo mode.</p></Card>
+    <Card title="More from this node" className="compute-section"><p className="muted-copy">Node-specific containers, jobs and logs require read-only integrations. Recorded demo relationships are on the <a className="inline-link" href="/network">Network page</a>. No node actions are available in demo mode.</p></Card>
   </>
 }

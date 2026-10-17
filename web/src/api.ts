@@ -35,3 +35,8 @@ export async function loadNode(id: string) {
   const [node, metrics] = await Promise.all([client.getNode(id), client.getNodeMetrics(id)])
   return { ...unwrap(node), metrics: unwrap(metrics) }
 }
+
+export async function loadNetwork() {
+  const [graph, connections] = await Promise.all([client.getNetworkGraph(), client.listConnections()])
+  return { graph: unwrap(graph), connections: unwrap(connections).items }
+}

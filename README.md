@@ -55,7 +55,7 @@ The default deployment should remain small enough to run comfortably as a single
 
 ## Current build
 
-Milestones 0 and 1 are complete, and Milestone 2 has read-only Compute and Node Detail screens. The app uses SQLite-backed observations from a deterministic demo provider. The production routes are `/`, `/compute`, and `/nodes/{id}`. All displayed infrastructure and activity are marked as simulated. Authentication, live integrations, node actions, and deployment to a home gateway are not implemented. Do not expose this build publicly.
+Milestones 0 and 1 are complete, and the app has read-only Compute, Node Detail and Network screens. The app uses SQLite-backed observations from a deterministic demo provider. The production routes are `/`, `/compute`, `/nodes/{id}`, and `/network`. All displayed infrastructure and activity are marked as simulated. Authentication, live integrations, node actions, and deployment to a home gateway are not implemented. Do not expose this build publicly.
 
 ### Run locally
 

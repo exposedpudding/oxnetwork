@@ -47,12 +47,12 @@ Acceptance: owner can understand aggregate capacity and inspect a worker/node.
 
 ## Milestone 3 - Network topology
 
-- [ ] Graph domain/schema.
-- [ ] Graph API.
-- [ ] SVG topology renderer.
-- [ ] Node selection/details pane.
-- [ ] Connections/routes table.
-- [ ] Textual accessibility fallback.
+- [x] Graph domain/schema with persisted, explicit demo connections.
+- [x] Read-only graph and connections APIs.
+- [x] SVG topology renderer in the production Network page.
+- [x] Node selection/details pane.
+- [-] Recorded connections table; route observations are pending.
+- [x] Textual accessibility fallback.
 
 Acceptance: topology is generated from graph data and remains usable without animation/WebGL.
 

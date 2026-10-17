@@ -18,6 +18,8 @@ import type {
   ComputeSummary,
   Job,
   ListResponse,
+  NetworkGraph,
+  GraphEdge,
   Node,
   Metrics,
   Service,
@@ -110,6 +112,8 @@ export function createApiClient(options: ClientOptions = {}) {
     getComputeSummary: (o?: RequestOptions) => request<ComputeSummary>('GET', '/compute/summary', o),
     listWorkers: (o?: RequestOptions) => request<ListResponse<Worker>>('GET', '/compute/workers', o),
     listJobs: (o?: RequestOptions) => request<ListResponse<Job>>('GET', '/jobs', o),
+    getNetworkGraph: (o?: RequestOptions) => request<NetworkGraph>('GET', '/network/graph', o),
+    listConnections: (o?: RequestOptions) => request<ListResponse<GraphEdge>>('GET', '/network/connections', o),
   };
 }
 

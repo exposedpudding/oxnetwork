@@ -148,6 +148,30 @@ paths:
                   items:
                     type: array
                     items: { type: object }
+  /network/graph:
+    get:
+      operationId: getNetworkGraph
+      responses:
+        '200':
+          description: Inventory graph with explicitly observed connections; demo records are simulated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NetworkGraph' }
+  /network/connections:
+    get:
+      operationId: listConnections
+      responses:
+        '200':
+          description: Recorded network and service relationships
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/GraphEdge' }
 components:
   parameters:
     NodeId:
@@ -271,20 +295,28 @@ components:
         created_at: { type: string, format: date-time }
     GraphNode:
       type: object
-      required: [id, kind, label]
+      required: [id, resource_id, kind, label, health, freshness, simulated]
       properties:
         id: { type: string }
+        resource_id: { type: string }
         kind: { type: string }
         label: { type: string }
         health: { $ref: '#/components/schemas/Health' }
+        freshness: { type: string, enum: [fresh, stale, unknown] }
+        simulated: { type: boolean }
     GraphEdge:
       type: object
-      required: [id, source, target, kind]
+      required: [id, source, target, kind, observed_at, stale_after_seconds, source_system, freshness, simulated]
       properties:
         id: { type: string }
         source: { type: string }
         target: { type: string }
         kind: { type: string }
+        observed_at: { type: string, format: date-time }
+        stale_after_seconds: { type: integer, minimum: 0 }
+        source_system: { type: string }
+        freshness: { type: string, enum: [fresh, stale, unknown] }
+        simulated: { type: boolean }
     NetworkGraph:
       type: object
       required: [nodes, edges]

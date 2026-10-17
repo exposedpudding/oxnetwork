@@ -29,11 +29,19 @@ func (Provider) Snapshot(now time.Time) domain.Snapshot {
 		{ID: "demo-activity-1", Title: "Demo inventory refreshed", Detail: "Example data loaded", State: "info", OccurredAt: now.Add(-2 * time.Minute).UTC(), Simulated: true},
 		{ID: "demo-activity-2", Title: "Demo worker needs attention", Detail: "Sample observation is stale", State: "warning", OccurredAt: now.Add(-7 * time.Minute).UTC(), Simulated: true},
 	}
+	connections := []domain.Connection{
+		{ID: "demo-link-worker", Source: "node:demo-gateway", Target: "node:demo-worker", Kind: "tailnet", ObservedAt: now.Add(-15 * time.Second).UTC(), StaleAfterSeconds: 90, SourceSystem: "demo", Simulated: true},
+		{ID: "demo-link-sensor", Source: "node:demo-gateway", Target: "node:demo-sensor", Kind: "tailnet", ObservedAt: now.Add(-3 * time.Minute).UTC(), StaleAfterSeconds: 90, SourceSystem: "demo", Simulated: true},
+		{ID: "demo-host-private-access", Source: "node:demo-gateway", Target: "service:demo-private-access", Kind: "hosts", ObservedAt: now.Add(-12 * time.Second).UTC(), StaleAfterSeconds: 90, SourceSystem: "demo", Simulated: true},
+	}
 	for i := range nodes {
 		nodes[i].Freshness = nodes[i].Health.Freshness(now)
 	}
 	for i := range services {
 		services[i].Freshness = services[i].Health.Freshness(now)
 	}
-	return domain.Snapshot{Nodes: nodes, Services: services, Activity: activity}
+	for i := range connections {
+		connections[i].Freshness = connections[i].ObservedFreshness(now)
+	}
+	return domain.Snapshot{Nodes: nodes, Services: services, Activity: activity, Connections: connections}
 }

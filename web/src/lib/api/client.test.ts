@@ -57,7 +57,7 @@ describe('api client', () => {
 });
 
 describe('implemented read endpoints', () => {
-  it('hits /system, /services/{id}, /activity and the compute endpoints', async () => {
+  it('hits system, service, activity, compute and network endpoints', async () => {
     const f = vi.fn().mockImplementation(async () => json({ items: [] }));
     const c = createApiClient({ fetch: f });
     await c.getSystem();
@@ -66,9 +66,12 @@ describe('implemented read endpoints', () => {
     await c.getComputeSummary();
     await c.listWorkers();
     await c.listJobs();
+    await c.getNetworkGraph();
+    await c.listConnections();
     expect(f.mock.calls.map((x) => x[0])).toEqual([
       '/api/v1/system', '/api/v1/services/s%201', '/api/v1/activity',
       '/api/v1/compute/summary', '/api/v1/compute/workers', '/api/v1/jobs',
+      '/api/v1/network/graph', '/api/v1/network/connections',
     ]);
   });
 });

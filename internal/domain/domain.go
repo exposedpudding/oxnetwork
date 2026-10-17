@@ -55,10 +55,29 @@ type Activity struct {
 	Simulated  bool      `json:"simulated"`
 }
 
+// Connection is an observed relationship between graph resources. Source and
+// Target use node:<id> or service:<id> so IDs cannot collide across kinds.
+type Connection struct {
+	ID                string    `json:"id"`
+	Source            string    `json:"source"`
+	Target            string    `json:"target"`
+	Kind              string    `json:"kind"`
+	ObservedAt        time.Time `json:"observed_at"`
+	StaleAfterSeconds int       `json:"stale_after_seconds"`
+	SourceSystem      string    `json:"source_system"`
+	Freshness         string    `json:"freshness"`
+	Simulated         bool      `json:"simulated"`
+}
+
+func (c Connection) ObservedFreshness(now time.Time) string {
+	return Health{ObservedAt: c.ObservedAt, StaleAfterSeconds: c.StaleAfterSeconds}.Freshness(now)
+}
+
 type Snapshot struct {
-	Nodes    []Node
-	Services []Service
-	Activity []Activity
+	Nodes       []Node
+	Services    []Service
+	Activity    []Activity
+	Connections []Connection
 }
 
 type Source interface{ Snapshot(now time.Time) Snapshot }

@@ -64,6 +64,8 @@ Never provide arbitrary Docker API proxying to the browser.
 
 Treat OpenCode as a provider behind a compute/job adapter. Exact implementation may evolve with the deployed OpenCode architecture.
 
+The owner reports that Gemini is deploying OX-C-01 as the main OpenCode host. Treat its API and availability as unverified until that work is complete; do not show OX-C-01 as a live worker based on this note alone.
+
 Normalize:
 
 - worker identity;

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { loadCompute, loadNode, loadOverview } from './api'
+import { loadCompute, loadNetwork, loadNode, loadOverview } from './api'
 import { ComputeView, NodeDetailView } from './DetailViews'
+import { NetworkView } from './NetworkView'
 import { ErrorState } from './components/States'
 import type { Activity, Node, Service, System } from './types'
 
@@ -41,11 +42,12 @@ export function OverviewView({ data, query }: { data: OverviewData; query: strin
   </>
 }
 
-type Page = { kind: 'overview' } | { kind: 'compute' } | { kind: 'node'; id: string } | { kind: 'missing' }
+type Page = { kind: 'overview' } | { kind: 'compute' } | { kind: 'network' } | { kind: 'node'; id: string } | { kind: 'missing' }
 
 function pageFromPath(pathname: string): Page {
   if (pathname === '/') return { kind: 'overview' }
   if (pathname === '/compute') return { kind: 'compute' }
+  if (pathname === '/network') return { kind: 'network' }
   const match = /^\/nodes\/([^/]+)$/.exec(pathname)
   if (match) {
     try { return { kind: 'node', id: decodeURIComponent(match[1]) } } catch { return { kind: 'missing' } }
@@ -60,6 +62,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null)
   const [pageError, setPageError] = useState<string | null>(null)
   const [compute, setCompute] = useState<Awaited<ReturnType<typeof loadCompute>> | null>(null)
+  const [network, setNetwork] = useState<Awaited<ReturnType<typeof loadNetwork>> | null>(null)
   const [node, setNode] = useState<Awaited<ReturnType<typeof loadNode>> | null>(null)
   const [query, setQuery] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
@@ -68,6 +71,7 @@ export function App() {
     const refresh = () => {
       void loadOverview().then(result => { if (alive) { setData(result); setError(null) } }).catch(reason => { if (alive) setError(String(reason)) })
       if (page.kind === 'compute') void loadCompute().then(result => { if (alive) { setCompute(result); setPageError(null) } }).catch(reason => { if (alive) setPageError(String(reason)) })
+      if (page.kind === 'network') void loadNetwork().then(result => { if (alive) { setNetwork(result); setPageError(null) } }).catch(reason => { if (alive) setPageError(String(reason)) })
       if (page.kind === 'node') void loadNode(page.id).then(result => { if (alive) { setNode(result); setPageError(null) } }).catch(reason => { if (alive) setPageError(String(reason)) })
     }
     void refresh()
@@ -87,8 +91,11 @@ export function App() {
     ? data ? <OverviewView data={data} query={query} /> : error ? <ErrorState message={error} /> : <div className="loading" role="status">Loading overview…</div>
     : page.kind === 'compute'
       ? compute ? <ComputeView data={compute} query={query} /> : pageError ? <ErrorState message={pageError} /> : <div className="loading" role="status">Loading compute…</div>
+      : page.kind === 'network'
+        ? network ? <NetworkView data={network} query={query} /> : pageError ? <ErrorState message={pageError} /> : <div className="loading" role="status">Loading network…</div>
       : page.kind === 'node'
         ? node ? <NodeDetailView node={node} /> : pageError ? <ErrorState message={pageError} /> : <div className="loading" role="status">Loading node…</div>
         : <ErrorState title="Page not found" message="This page does not exist." />
-  return <div className="app-shell"><aside className="sidebar"><div className="brand">oxnet<span>.work</span></div><nav aria-label="Primary"><a href="/" aria-current={page.kind === 'overview' ? 'page' : undefined} className={page.kind === 'overview' ? 'nav-active' : ''}><span aria-hidden="true">▦</span>Overview</a><a href="/compute" aria-current={page.kind === 'compute' ? 'page' : undefined} className={page.kind === 'compute' ? 'nav-active' : ''}><span aria-hidden="true">◫</span>Compute</a></nav><div className="sidebar-bottom"><span className="sidebar-dot" />Demo workspace</div></aside><div className="main-column"><header className="topbar"><div className="site-pill">⌂ <span>{data?.system.site_name ?? 'Homelab'}</span></div>{page.kind !== 'node' && <div className="search-wrap"><span aria-hidden="true">⌕</span><input ref={searchRef} type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder={page.kind === 'compute' ? 'Search workers and jobs' : 'Search nodes and services'} aria-label={page.kind === 'compute' ? 'Search workers and jobs' : 'Search nodes and services'} /><kbd>⌘ K</kbd></div>}<span className="overall">{overall}</span></header><main>{error && data && <div role="alert" className="error">Unable to refresh overview data: {error}. Showing the last available view.</div>}{pageError && (compute || node) && <div role="alert" className="error">Unable to refresh this page: {pageError}. Showing the last available view.</div>}{content}</main></div></div>
+  const searchLabel = page.kind === 'compute' ? 'Search workers and jobs' : page.kind === 'network' ? 'Search network resources' : 'Search nodes and services'
+  return <div className="app-shell"><aside className="sidebar"><div className="brand">oxnet<span>.work</span></div><nav aria-label="Primary"><a href="/" aria-current={page.kind === 'overview' ? 'page' : undefined} className={page.kind === 'overview' ? 'nav-active' : ''}><span aria-hidden="true">▦</span>Overview</a><a href="/compute" aria-current={page.kind === 'compute' ? 'page' : undefined} className={page.kind === 'compute' ? 'nav-active' : ''}><span aria-hidden="true">◫</span>Compute</a><a href="/network" aria-current={page.kind === 'network' ? 'page' : undefined} className={page.kind === 'network' ? 'nav-active' : ''}><span aria-hidden="true">⌁</span>Network</a></nav><div className="sidebar-bottom"><span className="sidebar-dot" />Demo workspace</div></aside><div className="main-column"><header className="topbar"><div className="site-pill">⌂ <span>{data?.system.site_name ?? 'Homelab'}</span></div>{page.kind !== 'node' && <div className="search-wrap"><span aria-hidden="true">⌕</span><input ref={searchRef} type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder={searchLabel} aria-label={searchLabel} /><kbd>⌘ K</kbd></div>}<span className="overall">{overall}</span></header><main>{error && data && <div role="alert" className="error">Unable to refresh overview data: {error}. Showing the last available view.</div>}{pageError && (compute || network || node) && <div role="alert" className="error">Unable to refresh this page: {pageError}. Showing the last available view.</div>}{content}</main></div></div>
 }

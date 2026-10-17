@@ -469,6 +469,14 @@ main {
 .metric-stack { display:grid; gap:18px; margin:8px 0 22px }
 .capability-list { list-style:none; display:flex; flex-wrap:wrap; gap:8px; padding:0; margin:0 }
 .capability-list li { border:1px solid #263851; border-radius:999px; padding:5px 10px; color:#bdcfe0; font-size:12px }
+.network-layout { display:grid; grid-template-columns:minmax(0,2fr) minmax(290px,1fr); gap:14px; align-items:start; margin-bottom:16px }
+.network-layout>section { min-width:0 }
+.network-detail h3 { margin:0 0 4px; font-size:19px }
+.network-detail>p { margin:0 0 18px; color:#91a3ba; font-size:13px }
+.network-detail dl { display:grid; grid-template-columns:auto 1fr; gap:11px 16px; margin:22px 0; font-size:12px }
+.network-detail dt { color:#91a3ba }
+.network-detail dd { margin:0; overflow-wrap:anywhere }
+@media(max-width:1000px) { .network-layout { grid-template-columns:1fr } }
 @media(max-width:1100px) {
   .summary-grid {
   grid-template-columns:repeat(2,minmax(0,1fr))

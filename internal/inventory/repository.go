@@ -58,11 +58,20 @@ func (r Repository) UpsertSnapshot(ctx context.Context, snapshot domain.Snapshot
 			return err
 		}
 	}
+	for _, connection := range snapshot.Connections {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO network_connections(id,source_id,target_id,kind,observed_at,stale_after_seconds,source_system,simulated)
+			VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET source_id=excluded.source_id,target_id=excluded.target_id,kind=excluded.kind,
+			observed_at=excluded.observed_at,stale_after_seconds=excluded.stale_after_seconds,source_system=excluded.source_system,simulated=excluded.simulated`,
+			connection.ID, connection.Source, connection.Target, connection.Kind, connection.ObservedAt.Format(time.RFC3339Nano),
+			connection.StaleAfterSeconds, connection.SourceSystem, connection.Simulated); err != nil {
+			return fmt.Errorf("store connection %s: %w", connection.ID, err)
+		}
+	}
 	return tx.Commit()
 }
 
 func (r Repository) Snapshot(ctx context.Context, now time.Time) (domain.Snapshot, error) {
-	result := domain.Snapshot{Nodes: []domain.Node{}, Services: []domain.Service{}, Activity: []domain.Activity{}}
+	result := domain.Snapshot{Nodes: []domain.Node{}, Services: []domain.Service{}, Activity: []domain.Activity{}, Connections: []domain.Connection{}}
 	rows, err := r.DB.QueryContext(ctx, `SELECT n.id,n.name,n.role,n.platform,o.health_state,o.observed_at,o.stale_after_seconds,o.source,
 		o.cpu_percent,o.ram_percent,o.vcpu,o.ram_gb,o.simulated FROM inventory_nodes n JOIN node_observations o ON o.node_id=n.id ORDER BY n.id`)
 	if err != nil {
@@ -168,6 +177,29 @@ func (r Repository) Snapshot(ctx context.Context, now time.Time) (domain.Snapsho
 			return result, err
 		}
 		result.Activity = append(result.Activity, a)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return result, err
+	}
+	rows.Close()
+	rows, err = r.DB.QueryContext(ctx, `SELECT id,source_id,target_id,kind,observed_at,stale_after_seconds,source_system,simulated FROM network_connections ORDER BY id`)
+	if err != nil {
+		return result, err
+	}
+	for rows.Next() {
+		var connection domain.Connection
+		var observed string
+		if err := rows.Scan(&connection.ID, &connection.Source, &connection.Target, &connection.Kind, &observed, &connection.StaleAfterSeconds, &connection.SourceSystem, &connection.Simulated); err != nil {
+			rows.Close()
+			return result, err
+		}
+		if connection.ObservedAt, err = time.Parse(time.RFC3339Nano, observed); err != nil {
+			rows.Close()
+			return result, err
+		}
+		connection.Freshness = connection.ObservedFreshness(now)
+		result.Connections = append(result.Connections, connection)
 	}
 	if err := rows.Err(); err != nil {
 		rows.Close()

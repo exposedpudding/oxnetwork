@@ -46,6 +46,6 @@ docker compose --env-file .env -f compose.yml config --quiet
 docker compose --env-file .env -f compose.yml build oxnet-work
 docker compose --env-file .env -f compose.yml run --rm --no-deps --entrypoint /bin/sh oxnet-work -c 'test -r /run/secrets/oidc_client_secret'
 docker compose --env-file .env -f compose.yml up -d oxnet-work
-curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8080/readyz
+curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8090/readyz
 echo
 echo 'oxnet.work started. Complete the private HTTPS, login and internet-inaccessibility checks in README.md.'

@@ -61,7 +61,7 @@ services:
     secrets:
       - oidc_client_secret
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:8090:8080"
     volumes:
       - oxnet-data:/data
     restart: unless-stopped

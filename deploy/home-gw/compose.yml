@@ -1,0 +1,81 @@
+# Private Home GW staging stack. Terminate HTTPS on a tailnet-only reverse proxy.
+# The Authentik services follow the upstream 2026.8.4 Compose generator, with
+# the optional Docker socket mount omitted because no managed outpost is used.
+services:
+  postgresql:
+    image: docker.io/library/postgres:16-alpine
+    environment:
+      POSTGRES_DB: authentik
+      POSTGRES_USER: authentik
+      POSTGRES_PASSWORD: ${PG_PASS:?Set PG_PASS in .env}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    volumes:
+      - authentik-database:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  authentik-server:
+    image: ghcr.io/goauthentik/server:2026.8.4
+    command: server
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    environment: &authentik-environment
+      AUTHENTIK_POSTGRESQL__HOST: postgresql
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS:?Set PG_PASS in .env}
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?Set AUTHENTIK_SECRET_KEY in .env}
+    shm_size: 512mb
+    ports:
+      - "127.0.0.1:9000:9000"
+    volumes:
+      - authentik-data:/data
+    restart: unless-stopped
+
+  authentik-worker:
+    image: ghcr.io/goauthentik/server:2026.8.4
+    command: worker
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    environment: *authentik-environment
+    shm_size: 512mb
+    volumes:
+      - authentik-data:/data
+    restart: unless-stopped
+
+  oxnet-work:
+    build:
+      context: ../..
+    image: oxnet-work:home-gw
+    environment:
+      OXNET_OIDC_ISSUER_URL: ${OXNET_OIDC_ISSUER_URL:?Set OXNET_OIDC_ISSUER_URL in .env}
+      OXNET_OIDC_CLIENT_ID: ${OXNET_OIDC_CLIENT_ID:?Set OXNET_OIDC_CLIENT_ID in .env}
+      OXNET_OIDC_CLIENT_SECRET_FILE: /run/secrets/oidc_client_secret
+      OXNET_PUBLIC_URL: https://oxnet.work
+    secrets:
+      - oidc_client_secret
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - oxnet-data:/data
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+secrets:
+  oidc_client_secret:
+    file: ./secrets/oidc_client_secret
+
+volumes:
+  authentik-database:
+  authentik-data:
+  oxnet-data:

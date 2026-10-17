@@ -182,13 +182,14 @@ components:
   schemas:
     SystemInfo:
       type: object
-      required: [name, site_name, version, server_time, features, demo_mode]
+      required: [name, site_name, version, server_time, features, demo_mode, auth_required]
       properties:
         name: { type: string, const: oxnet.work }
         site_name: { type: string }
         version: { type: string }
         server_time: { type: string, format: date-time }
         demo_mode: { type: boolean }
+        auth_required: { type: boolean }
         features:
           type: array
           items: { type: string }

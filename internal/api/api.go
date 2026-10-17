@@ -23,12 +23,13 @@ import (
 )
 
 type Server struct {
-	DB       *sql.DB
-	Repo     inventory.Repository
-	WebDir   string
-	SiteName string
-	Log      *slog.Logger
-	Now      func() time.Time
+	DB          *sql.DB
+	Repo        inventory.Repository
+	WebDir      string
+	SiteName    string
+	AuthEnabled bool
+	Log         *slog.Logger
+	Now         func() time.Time
 }
 
 func (s *Server) Handler() http.Handler {
@@ -46,7 +47,7 @@ func (s *Server) Handler() http.Handler {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 	})
 	mux.HandleFunc("GET /api/v1/system", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]any{"name": "oxnet.work", "site_name": s.SiteName, "version": "0.1.0-dev", "server_time": s.now(), "features": []string{"demo_provider"}, "demo_mode": true})
+		writeJSON(w, http.StatusOK, map[string]any{"name": "oxnet.work", "site_name": s.SiteName, "version": "0.1.0-dev", "server_time": s.now(), "features": []string{"demo_provider"}, "demo_mode": true, "auth_required": s.AuthEnabled})
 	})
 	mux.HandleFunc("GET /api/v1/nodes", func(w http.ResponseWriter, r *http.Request) {
 		snapshot, ok := s.snapshot(w, r)

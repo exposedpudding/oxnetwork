@@ -32,3 +32,28 @@ func TestShippedExampleLoads(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestOIDCConfigurationRequiresCompleteSecureOrigin(t *testing.T) {
+	c, err := Load("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Auth.IssuerURL = "https://auth.example.test/application/o/oxnet-work/"
+	if err := c.Validate(); err == nil {
+		t.Fatal("partial OIDC config accepted")
+	}
+	c.Auth.ClientID = "oxnet-work"
+	c.Auth.ClientSecretFile = "/run/secrets/oidc_client_secret"
+	c.Auth.PublicURL = "https://oxnet.example.test"
+	if err := c.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	c.Auth.PublicURL = "http://home-gw.local"
+	if err := c.Validate(); err == nil {
+		t.Fatal("insecure non-loopback URL accepted")
+	}
+	c.Auth.PublicURL = "https://oxnet.example.test/subpath"
+	if err := c.Validate(); err == nil {
+		t.Fatal("subpath public URL accepted")
+	}
+}

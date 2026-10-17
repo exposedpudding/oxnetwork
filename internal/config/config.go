@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,6 +25,12 @@ type Config struct {
 		DemoProvider   bool `yaml:"demo_provider"`
 		ActionsEnabled bool `yaml:"actions_enabled"`
 	} `yaml:"features"`
+	Auth struct {
+		IssuerURL        string `yaml:"issuer_url"`
+		ClientID         string `yaml:"client_id"`
+		ClientSecretFile string `yaml:"client_secret_file"`
+		PublicURL        string `yaml:"public_url"`
+	} `yaml:"auth"`
 }
 
 func Load(path string) (Config, error) {
@@ -59,6 +66,18 @@ func Load(path string) (Config, error) {
 	if value, ok := os.LookupEnv("OXNET_DEMO_PROVIDER"); ok {
 		c.Features.DemoProvider = value == "true"
 	}
+	if value, ok := os.LookupEnv("OXNET_OIDC_ISSUER_URL"); ok {
+		c.Auth.IssuerURL = value
+	}
+	if value, ok := os.LookupEnv("OXNET_OIDC_CLIENT_ID"); ok {
+		c.Auth.ClientID = value
+	}
+	if value, ok := os.LookupEnv("OXNET_OIDC_CLIENT_SECRET_FILE"); ok {
+		c.Auth.ClientSecretFile = value
+	}
+	if value, ok := os.LookupEnv("OXNET_PUBLIC_URL"); ok {
+		c.Auth.PublicURL = value
+	}
 	if err := c.Validate(); err != nil {
 		return c, err
 	}
@@ -82,7 +101,26 @@ func (c Config) Validate() error {
 	if !c.Features.DemoProvider {
 		return errors.New("only demo_provider is implemented")
 	}
+	if c.OIDCEnabled() {
+		if c.Auth.IssuerURL == "" || c.Auth.ClientID == "" || c.Auth.ClientSecretFile == "" || c.Auth.PublicURL == "" {
+			return errors.New("OIDC requires issuer_url, client_id, client_secret_file and public_url")
+		}
+		for _, raw := range []string{c.Auth.IssuerURL, c.Auth.PublicURL} {
+			u, err := url.Parse(raw)
+			if err != nil || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Scheme != "https" && !(u.Scheme == "http" && (u.Hostname() == "localhost" || net.ParseIP(u.Hostname()) != nil && net.ParseIP(u.Hostname()).IsLoopback()))) {
+				return errors.New("OIDC issuer and public URLs must use HTTPS or loopback HTTP")
+			}
+		}
+		public, _ := url.Parse(c.Auth.PublicURL)
+		if public.Path != "" && public.Path != "/" {
+			return errors.New("OIDC public_url must be an origin without a path")
+		}
+	}
 	return nil
+}
+
+func (c Config) OIDCEnabled() bool {
+	return c.Auth.IssuerURL != "" || c.Auth.ClientID != "" || c.Auth.ClientSecretFile != "" || c.Auth.PublicURL != ""
 }
 
 func (c Config) DatabasePath() string { return filepath.Join(c.Server.DataDir, "oxnet.db") }

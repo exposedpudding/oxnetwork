@@ -37,6 +37,8 @@ The app must not assume that possession of a URL equals authorization.
 
 Target authentication is OIDC, with Authentik a preferred self-hosted provider. Keep auth implementation provider-neutral.
 
+The server now supports OIDC authorization code login with PKCE, nonce and signed ID token validation. It stores hashed, revocable session tokens in SQLite, uses Secure/HttpOnly/SameSite cookies on HTTPS, and requires a CSRF token for sign out. The provider is enabled only when issuer, client ID, client secret file and public URL are all configured. The Home GW stack has no public ingress by default; live authorization and role checks are still required before action endpoints are introduced.
+
 Bootstrap options before OIDC is configured must be conservative:
 
 - bind only to loopback/private tailnet; and/or

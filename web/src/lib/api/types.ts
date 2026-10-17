@@ -20,6 +20,7 @@ export interface SystemInfo {
   site_name: string;
   /** True while the simulated provider is serving data. */
   demo_mode: boolean;
+  auth_required: boolean;
 }
 
 /** Server-computed freshness. Prefer this over deriving it client-side when present. */

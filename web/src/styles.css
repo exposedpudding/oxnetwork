@@ -143,6 +143,8 @@ a {
   font-size:12px;
   font-weight:650
 }
+.signout { border:1px solid #30435a; border-radius:8px; padding:8px 11px; background:#0e1c2e; color:#bdcfe0; cursor:pointer; white-space:nowrap; font-size:12px }
+.signout:hover { border-color:#53bfe9; color:#fff }
 main {
   max-width:1600px;
   margin:auto;

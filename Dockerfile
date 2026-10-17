@@ -19,10 +19,11 @@ RUN GOPROXY=off CGO_ENABLED=1 go build -mod=vendor -trimpath -ldflags="-s -w" -o
 
 FROM debian:bookworm-slim
 WORKDIR /app
-RUN mkdir -p /data /app/web/dist && chown -R 10001:10001 /data
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /data /app/web/dist && chown -R 10001:10001 /data
 COPY --from=go-build /out/oxnet-work /app/oxnet-work
 COPY --from=web-build /src/web/dist/ /app/web/dist/
 USER 10001:10001
-ENV OXNET_DATA_DIR=/data OXNET_WEB_DIR=/app/web/dist OXNET_LISTEN=0.0.0.0:8080 OXNET_ALLOW_UNAUTHENTICATED_BIND=true
+ENV OXNET_DATA_DIR=/data OXNET_WEB_DIR=/app/web/dist OXNET_LISTEN=0.0.0.0:8080
 EXPOSE 8080
 ENTRYPOINT ["/app/oxnet-work"]

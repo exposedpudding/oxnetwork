@@ -3,6 +3,8 @@ services:
     build:
       context: ..
     image: oxnet-work:dev
+    environment:
+      OXNET_ALLOW_UNAUTHENTICATED_BIND: "true"
     ports:
       - "127.0.0.1:8080:8080"
     volumes:

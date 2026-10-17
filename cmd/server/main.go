@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/exposedpudding/oxnetwork/internal/api"
+	"github.com/exposedpudding/oxnetwork/internal/auth"
 	"github.com/exposedpudding/oxnetwork/internal/config"
 	"github.com/exposedpudding/oxnetwork/internal/db"
 	"github.com/exposedpudding/oxnetwork/internal/integrations/demo"
@@ -37,7 +38,7 @@ func main() {
 	}
 	host, _, _ := net.SplitHostPort(cfg.Server.Listen)
 	ip := net.ParseIP(host)
-	if (ip == nil || !ip.IsLoopback()) && host != "localhost" && os.Getenv("OXNET_ALLOW_UNAUTHENTICATED_BIND") != "true" {
+	if (ip == nil || !ip.IsLoopback()) && host != "localhost" && !cfg.OIDCEnabled() && os.Getenv("OXNET_ALLOW_UNAUTHENTICATED_BIND") != "true" {
 		log.Error("non-loopback bind requires OXNET_ALLOW_UNAUTHENTICATED_BIND=true; this demo has no authentication")
 		os.Exit(1)
 	}
@@ -53,8 +54,17 @@ func main() {
 		log.Error("demo inventory failed", "error", err)
 		os.Exit(1)
 	}
-	app := &api.Server{DB: database, Repo: repo, WebDir: cfg.Server.WebDir, SiteName: cfg.UI.SiteName, Log: log}
-	server := &http.Server{Addr: cfg.Server.Listen, Handler: app.Handler(), ReadHeaderTimeout: 5 * time.Second}
+	app := &api.Server{DB: database, Repo: repo, WebDir: cfg.Server.WebDir, SiteName: cfg.UI.SiteName, AuthEnabled: cfg.OIDCEnabled(), Log: log}
+	var handler http.Handler = app.Handler()
+	if cfg.OIDCEnabled() {
+		identity, err := auth.New(context.Background(), database, cfg)
+		if err != nil {
+			log.Error("authentication setup failed", "error", err)
+			os.Exit(1)
+		}
+		handler = identity.Handler(handler)
+	}
+	server := &http.Server{Addr: cfg.Server.Listen, Handler: handler, ReadHeaderTimeout: 5 * time.Second}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	go func() {

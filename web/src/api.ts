@@ -40,3 +40,12 @@ export async function loadNetwork() {
   const [graph, connections] = await Promise.all([client.getNetworkGraph(), client.listConnections()])
   return { graph: unwrap(graph), connections: unwrap(connections).items }
 }
+
+export type AuthSession = { identity: { subject: string; email?: string }; csrf_token: string }
+
+export function loadAuthSession() { return get<AuthSession>('/auth/session') }
+
+export async function logout(csrfToken: string) {
+  const response = await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRF-Token': csrfToken } })
+  if (!response.ok) throw new Error(`Sign out returned ${response.status}`)
+}

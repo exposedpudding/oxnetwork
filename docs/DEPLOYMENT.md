@@ -2,6 +2,8 @@
 
 ## 1. Default deployment
 
+For the owner-approved Home GW placement of both oxnet.work and Authentik, see [`deploy/home-gw/README.md`](../deploy/home-gw/README.md). That private stack is prepared but awaits Home GW access, a resource check, private DNS and HTTPS proxy configuration, and creation of the Authentik OIDC client. The current dashboard continues to show simulated data until live adapters are added.
+
 The default target is a single Docker container plus a persistent data directory.
 
 ```text

@@ -65,3 +65,11 @@ Record material decisions here. Do not rewrite history; append superseding decis
 **Decision:** Run the first Overview build with a simulated, read-only provider. Bind the native server to loopback by default and publish the container port only on host loopback. Keep action endpoints and live integrations absent until authentication and authorization are built.
 
 **Reason:** This makes Milestones 0–1 testable without suggesting that fictional inventory is live or exposing an unauthenticated operations console.
+
+## ADR-009 - Home GW identity and command centre placement
+
+**Status:** Accepted by owner for deployment; activation pending host access and validation
+
+**Decision:** Host both the Authentik identity server and oxnet.work on Home GW. Use private Tailscale reachability and HTTPS names `auth.oxnet.work` (proposed) and `oxnet.work` (owner specified). Do not create public ingress by default. Authentik is a separate stack service with its own PostgreSQL database; oxnet.work remains a single Go/SQLite control-plane container.
+
+**Reason:** The owner explicitly chose co-location. Authentik requires PostgreSQL, which is an exception for the identity service to the project's lightweight, SQLite-only **control-plane** baseline. Home GW capacity and existing services must be checked before activation.

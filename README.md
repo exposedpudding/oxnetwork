@@ -52,3 +52,36 @@ oxnet.work control plane
 ```
 
 The default deployment should remain small enough to run comfortably as a single Docker service with one persistent data volume.
+
+## Current build
+
+Milestones 0 and 1 are underway. The current app is a read-only Overview backed by a deterministic demo provider. All displayed infrastructure and activity are marked as simulated. Authentication, live integrations, node actions, and deployment to a home gateway are not implemented. Do not expose this build publicly.
+
+### Run locally
+
+Requires Go 1.27, Node 24, npm, and a C compiler for SQLite.
+
+```bash
+cd web
+npm ci
+npm test
+npm run build
+cd ..
+go test ./...
+go run ./cmd/server
+```
+
+The app binds to `127.0.0.1:8080` by default. Check `http://127.0.0.1:8080/readyz`, then open the local UI. SQLite state lives in `./data/oxnet.db`. For a config file, run `go run ./cmd/server -config config/config.example.yaml`. The supported environment overrides are `OXNET_LISTEN`, `OXNET_DATA_DIR`, `OXNET_WEB_DIR`, and `OXNET_SITE_NAME`.
+
+Run the browser smoke test from `web` with `npm run smoke`. Set `CHROMIUM_PATH` to a system Chromium executable if Playwright's managed browser is not installed.
+
+### Run in Docker
+
+```bash
+docker compose -f deploy/docker-compose.yml up --build -d
+curl -f http://127.0.0.1:8080/readyz
+```
+
+The Compose port is bound to host loopback and persists SQLite in a named volume. The container listens on all of its own interfaces solely to receive that loopback-published port. This unauthenticated demo should stay private. Stop it with `docker compose -f deploy/docker-compose.yml down` (leave the volume intact).
+
+Cloud builds behind a custom TLS proxy may need `docker build --secret id=proxy_ca,src="$CODEX_PROXY_CERT" -t oxnet-work:dev .` before `docker compose -f deploy/docker-compose.yml up -d`. The certificate is mounted only in dependency download steps and is not copied into the image.

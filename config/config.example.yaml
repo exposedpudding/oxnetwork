@@ -1,37 +1,9 @@
 server:
-  listen: "0.0.0.0:8080"
-  public_base_url: "https://oxnet.work"
-  data_dir: "/data"
-
+  listen: "127.0.0.1:8080"
+  data_dir: "./data"
+  web_dir: "./web/dist"
 ui:
   site_name: "Homelab"
-  timezone: "Europe/London"
-
 features:
   demo_provider: true
   actions_enabled: false
-  workflows_enabled: true
-
-polling:
-  default_interval: "30s"
-  timeout: "5s"
-
-integrations:
-  tailscale:
-    enabled: false
-    api_key_ref: "env:TAILSCALE_API_KEY"
-  pangolin:
-    enabled: false
-    base_url: ""
-    token_ref: "env:PANGOLIN_API_TOKEN"
-  opencode:
-    enabled: false
-    base_url: ""
-    token_ref: "env:OPENCODE_API_TOKEN"
-
-auth:
-  mode: "private_bootstrap" # later: oidc
-  oidc:
-    issuer: ""
-    client_id: ""
-    client_secret_ref: "env:OIDC_CLIENT_SECRET"

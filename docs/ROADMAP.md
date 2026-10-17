@@ -4,30 +4,32 @@ Status legend: `[ ]` not started, `[-]` in progress, `[x]` complete.
 
 ## Milestone 0 - repository and runnable shell
 
-- [ ] Create repo structure from `AGENTS.md`.
-- [ ] Go module + server entrypoint.
-- [ ] React/TypeScript/Vite app.
-- [ ] Shared design tokens/layout shell.
-- [ ] SQLite connection + migrations framework.
-- [ ] Config loader + validation.
-- [ ] Structured logging + request IDs.
-- [ ] `/healthz`, `/readyz`, `/api/v1/system`.
-- [ ] Multi-stage Dockerfile.
-- [ ] Docker Compose example.
-- [ ] CI for Go tests + frontend build/tests.
+- [x] Create initial repo structure from `AGENTS.md`.
+- [x] Go module + server entrypoint.
+- [x] React/TypeScript/Vite app.
+- [x] Shared design tokens/layout shell.
+- [x] SQLite connection + migrations framework.
+- [x] Config loader + validation.
+- [x] Structured logging + request IDs.
+- [x] `/healthz`, `/readyz`, `/api/v1/system`.
+- [x] Multi-stage Dockerfile.
+- [x] Docker Compose example.
+- [x] CI for Go tests + frontend build/tests.
 
 Acceptance: one command starts a blank but branded oxnet.work shell and health endpoints pass.
 
 ## Milestone 1 - demo vertical slice / Overview
 
-- [ ] Domain types for Node, Service, Health, Metric, Activity.
-- [ ] Repository layer.
-- [ ] Deterministic demo provider.
-- [ ] Nodes/services/activity endpoints.
-- [ ] SSE event stream.
-- [ ] Overview UI matching approved direction.
-- [ ] Fresh/stale/unknown states.
-- [ ] Playwright Overview smoke test.
+- [x] Domain types for Node, Service, Health, Metric, Activity.
+- [ ] SQLite-backed inventory repository layer.
+- [x] Deterministic demo provider.
+- [x] Nodes/services/activity endpoints.
+- [x] SSE event stream.
+- [x] Overview UI matching approved direction.
+- [x] Fresh/stale/unknown states.
+- [x] Playwright Overview smoke test.
+
+The initial demo provider serves fixtures through the source interface. Persisted inventory and action/audit behavior remain for later work. This build is read-only and loopback-bound on the host.
 
 Acceptance: Overview is fully populated from API data, not frontend constants.
 

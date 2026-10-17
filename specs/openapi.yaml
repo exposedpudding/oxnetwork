@@ -75,6 +75,32 @@ paths:
       responses:
         '200':
           description: Services list
+  /services/{serviceId}:
+    get:
+      operationId: getService
+      parameters:
+        - name: serviceId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Service
+  /activity:
+    get:
+      operationId: listActivity
+      responses:
+        '200':
+          description: Simulated activity in demo mode
+  /events:
+    get:
+      operationId: streamEvents
+      responses:
+        '200':
+          description: Server-sent events stream
+          content:
+            text/event-stream:
+              schema: { type: string }
   /compute/summary:
     get:
       operationId: getComputeSummary
@@ -153,6 +179,13 @@ components:
         observed_at: { type: string, format: date-time }
         stale_after_seconds: { type: integer, minimum: 0 }
         source: { type: string }
+    Metrics:
+      type: object
+      properties:
+        cpu_percent: { type: number }
+        ram_percent: { type: number }
+        vcpu: { type: integer }
+        ram_gb: { type: integer }
     Node:
       type: object
       required: [id, name, health, capabilities]
@@ -168,6 +201,11 @@ components:
         addresses:
           type: object
           additionalProperties: { type: string }
+        freshness:
+          type: string
+          enum: [fresh, stale, unknown]
+        simulated: { type: boolean }
+        metrics: { $ref: '#/components/schemas/Metrics' }
     ActionRequest:
       type: object
       required: [type, idempotency_key]

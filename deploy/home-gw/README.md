@@ -16,6 +16,17 @@ Spaceship public DNS records are not private DNS records. For private name resol
 
 The owner chose **private split DNS**. Use Spaceship only for the DNS-01 TXT records and remove the stale public `auth.oxnet.work` A record. Home GW has Tailscale 1.102.4 with Guacamole on node port 443 and Filebrowser on node port 8443. The proposed solution is a **separate Tailscale Service with its own virtual IP**, serving raw TCP 443 to a local HTTPS proxy on `127.0.0.1:8445`; do not change the existing node Serve routes. The optional [`private-edge.compose.yml`](private-edge.compose.yml) and [`Caddyfile`](Caddyfile) provide that proxy. It routes by HTTPS hostname to Authentik and oxnet.work, and gives the oxnet-work container a Compose DNS alias for its `auth.oxnet.work` issuer. Obtain a certificate covering both names, install it as `certs/fullchain.pem` and `certs/key.pem` with restrictive permissions, then start `private-https` with both Compose files. Configure the Tailscale Service's raw TCP forwarding and the tailnet's split DNS only after checking `tailscale service list`, Service advertisement/ACL permissions, port 8445 availability, and whether an existing tailnet DNS resolver can serve these records. A split DNS rule needs a real reachable DNS server; adding the rule alone is insufficient. Renew certificates automatically and restart `private-https` after renewal.
 
+### Optional Tailscale inventory after sign-in works
+
+Keep the default demo mode until a tailnet client can sign in at `https://oxnet.work`. Then create a Tailscale API key with the least device-read permission available and save it **on Home GW** as `secrets/tailscale_api_key`; keep it out of Git and chat. Set `OXNET_TAILSCALE_TAILNET` in the local `.env` to the tailnet name. The container runs as UID 10001, so make the file readable to that UID (for example `root:10001`, mode `0640`) while keeping the `secrets` directory private. Check the overlay, then recreate just the app:
+
+```bash
+docker compose --env-file .env -f compose.yml -f live-tailscale.compose.yml config --quiet
+docker compose --env-file .env -f compose.yml -f live-tailscale.compose.yml up -d oxnet-work
+```
+
+Confirm `GET /api/v1/system` says `"demo_mode":false` after login, then check that `/api/v1/nodes` lists Tailscale devices with `"simulated":false` and `"state":"unknown"`. Verify the API key stays outside logs and responses. Switching to live mode clears old demo inventory; a failed Tailscale poll leaves an empty list initially, or the last successful list after a later outage, until a retry succeeds. Live inventory reports device identity only, not host health or topology. A future `docker compose` invocation for oxnet-work must include this overlay to keep live mode enabled.
+
 ## Prepare secrets on Home GW
 
 The easiest route is to run `bash bootstrap-authentik.sh` from this directory after checking Home GW capacity and existing services. It generates the PostgreSQL and Authentik secrets locally, keeps an existing `.env` intact, and starts only the Authentik services. After configuring the Authentik OIDC application, run `bash finish-oxnet.sh` from an interactive terminal; it prompts for the client ID and secret without echoing the secret, builds oxnet.work, checks secret readability, starts it and calls `/readyz`.

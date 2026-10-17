@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -15,7 +16,9 @@ import (
 	"github.com/exposedpudding/oxnetwork/internal/auth"
 	"github.com/exposedpudding/oxnetwork/internal/config"
 	"github.com/exposedpudding/oxnetwork/internal/db"
+	"github.com/exposedpudding/oxnetwork/internal/domain"
 	"github.com/exposedpudding/oxnetwork/internal/integrations/demo"
+	"github.com/exposedpudding/oxnetwork/internal/integrations/tailscale"
 	"github.com/exposedpudding/oxnetwork/internal/inventory"
 )
 
@@ -49,12 +52,55 @@ func main() {
 	}
 	defer database.Close()
 	repo := inventory.Repository{DB: database}
-	provider := demo.Provider{}
-	if err := repo.UpsertSnapshot(context.Background(), provider.Snapshot(time.Now().UTC())); err != nil {
-		log.Error("demo inventory failed", "error", err)
-		os.Exit(1)
+	var refresh func(context.Context, time.Time) error
+	interval := 30 * time.Second
+	mode := "demo"
+	if cfg.Features.DemoProvider {
+		provider := demo.Provider{}
+		refresh = func(ctx context.Context, now time.Time) error {
+			return repo.ReplaceSnapshot(ctx, provider.Snapshot(now))
+		}
+	} else {
+		mode = "tailscale"
+		interval = 60 * time.Second
+		key, err := os.ReadFile(cfg.Tailscale.APIKeyFile)
+		if err != nil {
+			log.Error("Tailscale API key file unavailable", "error", err)
+			os.Exit(1)
+		}
+		apiKey := strings.TrimSpace(string(key))
+		if apiKey == "" {
+			log.Error("Tailscale API key file is empty")
+			os.Exit(1)
+		}
+		client := tailscale.Client{Tailnet: cfg.Tailscale.Tailnet, APIKey: apiKey}
+		// Clear the demo on source change while retaining the last successful
+		// live observations across restarts and temporary API failures.
+		existing, err := repo.Snapshot(context.Background(), time.Now().UTC())
+		if err != nil {
+			log.Error("inventory source check failed", "error", err)
+			os.Exit(1)
+		}
+		if containsSimulated(existing) {
+			if err := repo.ReplaceSnapshot(context.Background(), domain.Snapshot{}); err != nil {
+				log.Error("inventory source switch failed", "error", err)
+				os.Exit(1)
+			}
+		}
+		refresh = func(ctx context.Context, now time.Time) error {
+			snapshot, err := client.Snapshot(ctx, now)
+			if err != nil {
+				return err
+			}
+			return repo.ReplaceSnapshot(ctx, snapshot)
+		}
 	}
-	app := &api.Server{DB: database, Repo: repo, WebDir: cfg.Server.WebDir, SiteName: cfg.UI.SiteName, AuthEnabled: cfg.OIDCEnabled(), Log: log}
+	initialCtx, initialCancel := context.WithTimeout(context.Background(), 15*time.Second)
+	if err := refresh(initialCtx, time.Now().UTC()); err != nil {
+		log.Warn("initial inventory refresh failed; retry scheduled", "source", mode, "error", err)
+	}
+	initialCancel()
+	app := &api.Server{DB: database, Repo: repo, WebDir: cfg.Server.WebDir, SiteName: cfg.UI.SiteName, AuthEnabled: cfg.OIDCEnabled(), SourceMode: mode, Log: log}
 	var handler http.Handler = app.Handler()
 	if cfg.OIDCEnabled() {
 		identity, err := auth.New(context.Background(), database, cfg)
@@ -68,15 +114,15 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	go func() {
-		ticker := time.NewTicker(30 * time.Second)
+		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case now := <-ticker.C:
-				if err := repo.UpsertSnapshot(ctx, provider.Snapshot(now.UTC())); err != nil && ctx.Err() == nil {
-					log.Error("demo inventory refresh failed", "error", err)
+				if err := refresh(ctx, now.UTC()); err != nil && ctx.Err() == nil {
+					log.Error("inventory refresh failed", "source", mode, "error", err)
 				}
 			}
 		}
@@ -87,9 +133,33 @@ func main() {
 		defer cancel()
 		_ = server.Shutdown(shutdown)
 	}()
-	log.Info("starting oxnet.work", "listen", cfg.Server.Listen, "demo", true)
+	log.Info("starting oxnet.work", "listen", cfg.Server.Listen, "inventory_source", mode)
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Error("server failed", "error", err)
 		os.Exit(1)
 	}
+}
+
+func containsSimulated(snapshot domain.Snapshot) bool {
+	for _, node := range snapshot.Nodes {
+		if node.Simulated {
+			return true
+		}
+	}
+	for _, service := range snapshot.Services {
+		if service.Simulated {
+			return true
+		}
+	}
+	for _, event := range snapshot.Activity {
+		if event.Simulated {
+			return true
+		}
+	}
+	for _, connection := range snapshot.Connections {
+		if connection.Simulated {
+			return true
+		}
+	}
+	return false
 }

@@ -20,9 +20,9 @@ export function ComputeView({ data, query }: { data: ComputeData; query: string 
   return <>
     <div className="page-heading"><div><p className="eyebrow">Command centre / Compute</p><h1>Compute</h1><p>Reported worker capacity and job activity.</p></div><span className="timestamp">Observed {timeLabel(data.summary.observed_at)}</span></div>
     {data.summary.simulated && <div className="demo-banner" role="status"><strong>Demo mode</strong><span>Capacity is simulated. No job provider or scheduler is connected.</span></div>}
-    {data.summary.freshness !== 'fresh' && <div className="compute-notice" role="status">Worker capacity is {data.summary.freshness}; it may no longer be available.</div>}
+    {data.workers.length > 0 && data.summary.freshness !== 'fresh' && <div className="compute-notice" role="status">Worker capacity is {data.summary.freshness}; it may no longer be available.</div>}
     <section aria-label="Compute summary" className="ox-grid compute-summary">
-      <StatCard label="Reported capacity" value={`${data.summary.total_vcpu} vCPU`} detail={data.summary.freshness === 'fresh' ? 'Current worker reports' : 'Includes stale worker reports'} />
+      <StatCard label="Reported capacity" value={data.workers.length ? `${data.summary.total_vcpu} vCPU` : 'Not reported'} detail={data.workers.length ? data.summary.freshness === 'fresh' ? 'Current worker reports' : 'Includes stale worker reports' : 'No compute provider connected'} />
       <StatCard label="Workers" value={data.workers.length} detail={`${data.workers.filter(worker => worker.freshness === 'fresh' && worker.state === 'online').length} online and fresh`} />
       <StatCard label="Active jobs" value="Unavailable" detail="No job provider connected" />
       <StatCard label="Queued jobs" value="Unavailable" detail="No job provider connected" />
@@ -36,7 +36,7 @@ export function ComputeView({ data, query }: { data: ComputeData; query: string 
       ]} />
     </Card>
     <Card title="Jobs" className="compute-section">
-      {jobs.length ? <ul className="simple-list">{jobs.map(job => <li key={job.id}>{job.name} · {job.state}</li>)}</ul> : <EmptyState title="No jobs reported" description="The demo has no connected job provider. Job counts and vCPU usage are placeholders." />}
+      {jobs.length ? <ul className="simple-list">{jobs.map(job => <li key={job.id}>{job.name} · {job.state}</li>)}</ul> : <EmptyState title="No jobs reported" description="No job provider is connected. Job counts and vCPU usage are unavailable." />}
     </Card>
     <Card title="Placement" className="compute-section"><p className="muted-copy">Placement rules can assess worker freshness, capabilities and capacity. Job dispatch and reservations are unavailable until a provider and authenticated actions are ready.</p></Card>
   </>
@@ -57,6 +57,7 @@ export function NodeDetailView({ node }: { node: NodeData }) {
       <Card title="Resource use"><div className="metric-stack"><MetricBar label="CPU" value={node.metrics.cpu_percent} /><MetricBar label="RAM" value={node.metrics.ram_percent} /></div><p className="muted-copy">Storage, temperature and latency are not reported by this source.</p></Card>
       <Card title="Capabilities">{node.capabilities.length ? <ul className="capability-list">{node.capabilities.map(capability => <li key={capability}>{capability}</li>)}</ul> : <EmptyState title="No capabilities reported" />}</Card>
     </div>
-    <Card title="More from this node" className="compute-section"><p className="muted-copy">Node-specific containers, jobs and logs require read-only integrations. Recorded demo relationships are on the <a className="inline-link" href="/network">Network page</a>. No node actions are available in demo mode.</p></Card>
+    {!node.simulated && <Card title="Tailscale identity" className="compute-section"><p className="muted-copy">Addresses: {node.addresses?.length ? node.addresses.join(', ') : 'Not reported'} · Last seen: {node.last_seen ? timeLabel(node.last_seen) : 'Not reported'}. Last seen is a Tailscale control-plane value, not a health check.</p></Card>}
+    <Card title="More from this node" className="compute-section"><p className="muted-copy">Node-specific containers, jobs and logs require read-only integrations. Recorded relationships are on the <a className="inline-link" href="/network">Network page</a>. Node actions are unavailable.</p></Card>
   </>
 }

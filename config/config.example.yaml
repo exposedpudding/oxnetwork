@@ -7,6 +7,11 @@ ui:
 features:
   demo_provider: true
   actions_enabled: false
+# For authenticated read-only Tailscale inventory, set demo_provider: false
+# and provide an API key with the least device-read permission available in a mounted secret file.
+# tailscale:
+#   tailnet: "example.ts.net"
+#   api_key_file: "/run/secrets/tailscale_api_key"
 # To enable Authentik or another OIDC provider, set all four values below.
 # Keep the client secret in a mounted file, never in this YAML.
 # auth:

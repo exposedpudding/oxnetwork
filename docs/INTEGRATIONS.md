@@ -29,6 +29,8 @@ Initial mode: read-only discovery.
 
 Do not assume MagicDNS names are permanent IDs.
 
+The opt-in adapter reads `GET /api/v2/tailnet/{tailnet}/devices` with an API credential with device read access. It stores Tailscale's device ID as stable identity, display hostname, OS, addresses and last-seen timestamp. Last seen does not prove that a host is currently reachable. Every imported node has `unknown` health and no fabricated metrics, services or graph edges. A failed poll leaves the previous successful inventory in SQLite so its observation freshness ages; switching from demo to live clears simulated records before the first poll. Live mode requires complete OIDC configuration. See `deploy/home-gw/live-tailscale.compose.yml` for the optional Home GW overlay.
+
 ## 2. Pangolin
 
 Purpose:

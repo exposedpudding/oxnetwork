@@ -15,7 +15,7 @@ function timeLabel(value: string) {
   return new Date(value).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
 }
 
-export function NetworkView({ data, query }: { data: NetworkData; query: string }) {
+export function NetworkView({ data, query, demoMode }: { data: NetworkData; query: string; demoMode?: boolean }) {
   const [selectedId, setSelectedId] = useState<string | undefined>()
   const lower = query.trim().toLowerCase()
   const nodes = data.graph.nodes.filter(node => `${node.label} ${node.kind}`.toLowerCase().includes(lower))
@@ -26,7 +26,8 @@ export function NetworkView({ data, query }: { data: NetworkData; query: string 
   const connections = data.connections.filter(edge => `${labels.get(edge.source) ?? edge.source} ${labels.get(edge.target) ?? edge.target} ${edge.kind}`.toLowerCase().includes(lower))
   return <>
     <div className="page-heading"><div><p className="eyebrow">Command centre / Network</p><h1>Network</h1><p>Recorded nodes, services and their relationships.</p></div><span className="timestamp">{nodes.length} nodes · {graph.edges.length} visible connections</span></div>
-    <div className="demo-banner" role="status"><strong>Demo mode</strong><span>Every displayed relationship is simulated. This map does not describe the live network.</span></div>
+    {demoMode === true && <div className="demo-banner" role="status"><strong>Demo mode</strong><span>Every displayed relationship is simulated. This map does not describe the live network.</span></div>}
+    {demoMode === false && <div className="demo-banner" role="status"><strong>Tailscale inventory</strong><span>Devices are listed without inferred network links. Tailscale does not report their health here.</span></div>}
     <div className="network-layout">
       <section aria-label="Topology"><TopologyView graph={graph} selectedId={selected?.id} onSelect={setSelectedId} kindLabels={kinds} /></section>
       <Card title="Selected resource">

@@ -20,6 +20,7 @@ export interface SystemInfo {
   site_name: string;
   /** True while the simulated provider is serving data. */
   demo_mode: boolean;
+  inventory_source?: 'demo' | 'tailscale';
   auth_required: boolean;
 }
 
@@ -40,7 +41,8 @@ export interface Node {
   platform?: string;
   health: Health;
   capabilities: string[];
-  addresses?: Record<string, string>;
+  addresses?: string[];
+  last_seen?: string;
   freshness?: NodeFreshness;
   /** True when the record comes from the demo provider, not live infrastructure. */
   simulated?: boolean;

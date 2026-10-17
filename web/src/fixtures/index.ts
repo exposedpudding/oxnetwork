@@ -18,9 +18,9 @@ const fresh = (h: Node['health']): NonNullable<Node['freshness']> => (freshnessO
 const withFreshness = <T extends { health: Node['health'] }>(x: T) => ({ ...x, freshness: fresh(x.health), simulated: true });
 
 const nodeSeed: Omit<Node, 'freshness' | 'simulated'>[] = [
-  { id: 'nd-0001', name: 'forge', role: 'Primary compute', platform: 'Debian 12', health: health('healthy'), capabilities: ['compute', 'docker', 'ssh', 'monitor'], addresses: { lan: '192.0.2.10' }, metrics: { cpu_percent: 21, ram_percent: 47, vcpu: 12, ram_gb: 32 } },
-  { id: 'nd-0002', name: 'anvil', role: 'Secondary compute', platform: 'Debian 12', health: health('healthy'), capabilities: ['compute', 'docker', 'ssh', 'wake'], addresses: { lan: '192.0.2.11' }, metrics: { cpu_percent: 9, ram_percent: 31, vcpu: 12, ram_gb: 32 } },
-  { id: 'nd-0003', name: 'beacon', role: 'Edge gateway', platform: 'Ubuntu 24.04', health: health('degraded'), capabilities: ['ssh', 'monitor'], addresses: { public: '198.51.100.7' }, metrics: { cpu_percent: 78, ram_percent: 92, vcpu: 4, ram_gb: 8 } },
+  { id: 'nd-0001', name: 'forge', role: 'Primary compute', platform: 'Debian 12', health: health('healthy'), capabilities: ['compute', 'docker', 'ssh', 'monitor'], addresses: ['192.0.2.10'], metrics: { cpu_percent: 21, ram_percent: 47, vcpu: 12, ram_gb: 32 } },
+  { id: 'nd-0002', name: 'anvil', role: 'Secondary compute', platform: 'Debian 12', health: health('healthy'), capabilities: ['compute', 'docker', 'ssh', 'wake'], addresses: ['192.0.2.11'], metrics: { cpu_percent: 9, ram_percent: 31, vcpu: 12, ram_gb: 32 } },
+  { id: 'nd-0003', name: 'beacon', role: 'Edge gateway', platform: 'Ubuntu 24.04', health: health('degraded'), capabilities: ['ssh', 'monitor'], addresses: ['198.51.100.7'], metrics: { cpu_percent: 78, ram_percent: 92, vcpu: 4, ram_gb: 8 } },
   // Stale: last observed 10 minutes ago against a 60s TTL, and reports no metrics.
   { id: 'nd-0004', name: 'sparrow', role: 'Edge device', health: health('healthy', 600), capabilities: ['agent'], metrics: {} },
 ];

@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -28,8 +27,16 @@ type Server struct {
 	WebDir      string
 	SiteName    string
 	AuthEnabled bool
+	SourceMode  string
 	Log         *slog.Logger
 	Now         func() time.Time
+}
+
+func (s *Server) sourceMode() string {
+	if s.SourceMode == "tailscale" {
+		return "tailscale"
+	}
+	return "demo"
 }
 
 func (s *Server) Handler() http.Handler {
@@ -47,7 +54,12 @@ func (s *Server) Handler() http.Handler {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 	})
 	mux.HandleFunc("GET /api/v1/system", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]any{"name": "oxnet.work", "site_name": s.SiteName, "version": "0.1.0-dev", "server_time": s.now(), "features": []string{"demo_provider"}, "demo_mode": true, "auth_required": s.AuthEnabled})
+		mode := s.sourceMode()
+		feature := "demo_provider"
+		if mode == "tailscale" {
+			feature = "tailscale"
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"name": "oxnet.work", "site_name": s.SiteName, "version": "0.1.0-dev", "server_time": s.now(), "features": []string{feature}, "demo_mode": mode == "demo", "inventory_source": mode, "auth_required": s.AuthEnabled})
 	})
 	mux.HandleFunc("GET /api/v1/nodes", func(w http.ResponseWriter, r *http.Request) {
 		snapshot, ok := s.snapshot(w, r)
@@ -262,7 +274,7 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("X-Accel-Buffering", "no")
-	_, _ = io.WriteString(w, "event: connected\ndata: {\"mode\":\"demo\"}\n\n")
+	_, _ = fmt.Fprintf(w, "event: connected\ndata: {\"mode\":%q}\n\n", s.sourceMode())
 	flusher.Flush()
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()

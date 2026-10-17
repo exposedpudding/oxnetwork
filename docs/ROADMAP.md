@@ -83,7 +83,7 @@ Acceptance: one real node appears from a live agent and reports metrics without 
 
 ## Milestone 6 - Tailscale + Docker read-only
 
-- [ ] Tailscale discovery adapter.
+- [x] Opt-in Tailscale read-only device discovery adapter (local tests; Home GW activation pending).
 - [ ] Reconcile discovered tailnet nodes with existing inventory.
 - [ ] Docker inventory through agent.
 - [ ] Real containers on Node Detail.

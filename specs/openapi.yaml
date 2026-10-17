@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: oxnet.work API
   version: 0.1.0
-  description: Current read-only demo API. Other planned endpoints are documented separately in docs/API_SPEC.md.
+  description: Current read-only API. Inventory uses either simulated demo records or opt-in Tailscale device discovery. Other planned endpoints are documented separately in docs/API_SPEC.md.
 servers:
   - url: /api/v1
 paths:
@@ -182,13 +182,14 @@ components:
   schemas:
     SystemInfo:
       type: object
-      required: [name, site_name, version, server_time, features, demo_mode, auth_required]
+      required: [name, site_name, version, server_time, features, demo_mode, inventory_source, auth_required]
       properties:
         name: { type: string, const: oxnet.work }
         site_name: { type: string }
         version: { type: string }
         server_time: { type: string, format: date-time }
         demo_mode: { type: boolean }
+        inventory_source: { type: string, enum: [demo, tailscale] }
         auth_required: { type: boolean }
         features:
           type: array
@@ -223,8 +224,9 @@ components:
           type: array
           items: { type: string }
         addresses:
-          type: object
-          additionalProperties: { type: string }
+          type: array
+          items: { type: string }
+        last_seen: { type: string, format: date-time, description: Last seen by Tailscale; not a host health check }
         freshness:
           type: string
           enum: [fresh, stale, unknown]

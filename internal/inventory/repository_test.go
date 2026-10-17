@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/exposedpudding/oxnetwork/internal/db"
+	"github.com/exposedpudding/oxnetwork/internal/domain"
 	"github.com/exposedpudding/oxnetwork/internal/integrations/demo"
 )
 
@@ -66,5 +67,31 @@ func TestSnapshotPersistsAcrossReopenAndRecomputesFreshness(t *testing.T) {
 	}
 	if len(refreshed.Nodes) != 3 || refreshed.Nodes[0].Freshness != "fresh" {
 		t.Fatalf("upsert failed: %+v", refreshed.Nodes)
+	}
+}
+
+func TestReplaceSnapshotRemovesDemoAndPersistsTailscaleIdentity(t *testing.T) {
+	database, err := db.Open(filepath.Join(t.TempDir(), "inventory.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	repo := Repository{DB: database}
+	ctx := context.Background()
+	now := time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)
+	if err := repo.UpsertSnapshot(ctx, demo.Provider{}.Snapshot(now)); err != nil {
+		t.Fatal(err)
+	}
+	lastSeen := now.Add(-time.Minute)
+	live := domain.Snapshot{Nodes: []domain.Node{{ID: "tailscale-123", Name: "home-gw", Role: "Tailnet device", Health: domain.Health{State: "unknown", ObservedAt: now, StaleAfterSeconds: 180, Source: "tailscale"}, Addresses: []string{"100.64.0.10"}, LastSeen: &lastSeen}}}
+	if err := repo.ReplaceSnapshot(ctx, live); err != nil {
+		t.Fatal(err)
+	}
+	got, err := repo.Snapshot(ctx, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Nodes) != 1 || len(got.Services) != 0 || len(got.Activity) != 0 || len(got.Connections) != 0 || got.Nodes[0].ID != "tailscale-123" || got.Nodes[0].Addresses[0] != "100.64.0.10" || !got.Nodes[0].LastSeen.Equal(lastSeen) {
+		t.Fatalf("unexpected replacement: %+v", got)
 	}
 }

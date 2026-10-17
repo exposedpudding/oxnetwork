@@ -27,15 +27,17 @@ type Metrics struct {
 }
 
 type Node struct {
-	ID           string   `json:"id"`
-	Name         string   `json:"name"`
-	Role         string   `json:"role"`
-	Platform     string   `json:"platform"`
-	Health       Health   `json:"health"`
-	Freshness    string   `json:"freshness"`
-	Capabilities []string `json:"capabilities"`
-	Metrics      Metrics  `json:"metrics"`
-	Simulated    bool     `json:"simulated"`
+	ID           string     `json:"id"`
+	Name         string     `json:"name"`
+	Role         string     `json:"role"`
+	Platform     string     `json:"platform"`
+	Health       Health     `json:"health"`
+	Freshness    string     `json:"freshness"`
+	Capabilities []string   `json:"capabilities"`
+	Metrics      Metrics    `json:"metrics"`
+	Addresses    []string   `json:"addresses"`
+	LastSeen     *time.Time `json:"last_seen,omitempty"`
+	Simulated    bool       `json:"simulated"`
 }
 
 type Service struct {

@@ -3,6 +3,7 @@ package inventory
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -14,15 +15,40 @@ import (
 type Repository struct{ DB *sql.DB }
 
 func (r Repository) UpsertSnapshot(ctx context.Context, snapshot domain.Snapshot) error {
+	return r.storeSnapshot(ctx, snapshot, false)
+}
+
+// ReplaceSnapshot switches the single active inventory source atomically. It
+// removes older demo records before publishing a successful live sync.
+func (r Repository) ReplaceSnapshot(ctx context.Context, snapshot domain.Snapshot) error {
+	return r.storeSnapshot(ctx, snapshot, true)
+}
+
+func (r Repository) storeSnapshot(ctx context.Context, snapshot domain.Snapshot, replace bool) error {
 	tx, err := r.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+	if replace {
+		for _, table := range []string{"network_connections", "activity_events", "inventory_nodes", "inventory_services"} {
+			if _, err := tx.ExecContext(ctx, "DELETE FROM "+table); err != nil {
+				return err
+			}
+		}
+	}
 	for _, node := range snapshot.Nodes {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO inventory_nodes(id,name,role,platform,updated_at) VALUES(?,?,?,?,?)
-			ON CONFLICT(id) DO UPDATE SET name=excluded.name,role=excluded.role,platform=excluded.platform,updated_at=excluded.updated_at`,
-			node.ID, node.Name, node.Role, node.Platform, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+		addresses, err := json.Marshal(node.Addresses)
+		if err != nil {
+			return fmt.Errorf("encode addresses for node %s: %w", node.ID, err)
+		}
+		var lastSeen any
+		if node.LastSeen != nil {
+			lastSeen = node.LastSeen.UTC().Format(time.RFC3339Nano)
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO inventory_nodes(id,name,role,platform,updated_at,addresses_json,last_seen_at) VALUES(?,?,?,?,?,?,?)
+			ON CONFLICT(id) DO UPDATE SET name=excluded.name,role=excluded.role,platform=excluded.platform,updated_at=excluded.updated_at,addresses_json=excluded.addresses_json,last_seen_at=excluded.last_seen_at`,
+			node.ID, node.Name, node.Role, node.Platform, time.Now().UTC().Format(time.RFC3339Nano), string(addresses), lastSeen); err != nil {
 			return fmt.Errorf("store node %s: %w", node.ID, err)
 		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO node_observations(node_id,health_state,observed_at,stale_after_seconds,source,cpu_percent,ram_percent,vcpu,ram_gb,simulated)
@@ -72,7 +98,7 @@ func (r Repository) UpsertSnapshot(ctx context.Context, snapshot domain.Snapshot
 
 func (r Repository) Snapshot(ctx context.Context, now time.Time) (domain.Snapshot, error) {
 	result := domain.Snapshot{Nodes: []domain.Node{}, Services: []domain.Service{}, Activity: []domain.Activity{}, Connections: []domain.Connection{}}
-	rows, err := r.DB.QueryContext(ctx, `SELECT n.id,n.name,n.role,n.platform,o.health_state,o.observed_at,o.stale_after_seconds,o.source,
+	rows, err := r.DB.QueryContext(ctx, `SELECT n.id,n.name,n.role,n.platform,n.addresses_json,n.last_seen_at,o.health_state,o.observed_at,o.stale_after_seconds,o.source,
 		o.cpu_percent,o.ram_percent,o.vcpu,o.ram_gb,o.simulated FROM inventory_nodes n JOIN node_observations o ON o.node_id=n.id ORDER BY n.id`)
 	if err != nil {
 		return result, err
@@ -80,11 +106,28 @@ func (r Repository) Snapshot(ctx context.Context, now time.Time) (domain.Snapsho
 	for rows.Next() {
 		var n domain.Node
 		var observed string
+		var addresses string
+		var lastSeen sql.NullString
 		var cpu, ram sql.NullFloat64
 		var vcpu, ramGB sql.NullInt64
-		if err := rows.Scan(&n.ID, &n.Name, &n.Role, &n.Platform, &n.Health.State, &observed, &n.Health.StaleAfterSeconds, &n.Health.Source, &cpu, &ram, &vcpu, &ramGB, &n.Simulated); err != nil {
+		if err := rows.Scan(&n.ID, &n.Name, &n.Role, &n.Platform, &addresses, &lastSeen, &n.Health.State, &observed, &n.Health.StaleAfterSeconds, &n.Health.Source, &cpu, &ram, &vcpu, &ramGB, &n.Simulated); err != nil {
 			rows.Close()
 			return result, err
+		}
+		if err := json.Unmarshal([]byte(addresses), &n.Addresses); err != nil {
+			rows.Close()
+			return result, err
+		}
+		if n.Addresses == nil {
+			n.Addresses = []string{}
+		}
+		if lastSeen.Valid {
+			value, err := time.Parse(time.RFC3339Nano, lastSeen.String)
+			if err != nil {
+				rows.Close()
+				return result, err
+			}
+			n.LastSeen = &value
 		}
 		if n.Health.ObservedAt, err = time.Parse(time.RFC3339Nano, observed); err != nil {
 			rows.Close()

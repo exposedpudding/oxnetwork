@@ -1,0 +1,14 @@
+# Optional read-only inventory overlay. Apply only after private HTTPS and
+# Authentik OIDC sign-in have been verified from a tailnet client.
+services:
+  oxnet-work:
+    environment:
+      OXNET_DEMO_PROVIDER: "false"
+      OXNET_TAILSCALE_TAILNET: ${OXNET_TAILSCALE_TAILNET:?Set OXNET_TAILSCALE_TAILNET in .env}
+      OXNET_TAILSCALE_API_KEY_FILE: /run/secrets/tailscale_api_key
+    secrets:
+      - tailscale_api_key
+
+secrets:
+  tailscale_api_key:
+    file: ./secrets/tailscale_api_key

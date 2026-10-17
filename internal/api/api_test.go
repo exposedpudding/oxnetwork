@@ -87,3 +87,38 @@ func TestAPIListsDemoDataAndHealth(t *testing.T) {
 		t.Fatalf("unexpected graph: %+v", graph)
 	}
 }
+
+func TestLiveSystemModeAndInventoryAreNotSimulated(t *testing.T) {
+	database, err := db.Open(filepath.Join(t.TempDir(), "live.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	repo := inventory.Repository{DB: database}
+	now := time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)
+	if err := repo.ReplaceSnapshot(context.Background(), domain.Snapshot{Nodes: []domain.Node{{ID: "tailscale-1", Name: "gateway", Role: "Tailnet device", Health: domain.Health{State: "unknown", Source: "tailscale", ObservedAt: now, StaleAfterSeconds: 180}}}}); err != nil {
+		t.Fatal(err)
+	}
+	h := (&Server{DB: database, Repo: repo, SourceMode: "tailscale", AuthEnabled: true, Now: func() time.Time { return now }}).Handler()
+	for _, endpoint := range []string{"/api/v1/system", "/api/v1/nodes"} {
+		r := httptest.NewRecorder()
+		h.ServeHTTP(r, httptest.NewRequest(http.MethodGet, endpoint, nil))
+		if r.Code != http.StatusOK {
+			t.Fatalf("%s: %d", endpoint, r.Code)
+		}
+		var body map[string]any
+		if err := json.Unmarshal(r.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		if endpoint == "/api/v1/system" && (body["demo_mode"] != false || body["inventory_source"] != "tailscale" || body["auth_required"] != true) {
+			t.Fatalf("unexpected system: %+v", body)
+		}
+		if endpoint == "/api/v1/nodes" {
+			items := body["items"].([]any)
+			node := items[0].(map[string]any)
+			if node["simulated"] != false || node["health"].(map[string]any)["state"] != "unknown" {
+				t.Fatalf("unexpected node: %+v", node)
+			}
+		}
+	}
+}

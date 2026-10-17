@@ -16,4 +16,12 @@ describe('OverviewView', () => {
     expect(html).toContain('Not reported')
     expect(html).toContain('Actions will appear when authenticated')
   })
+  it('labels Tailscale data without claiming health or simulated services', () => {
+    const node: Node = { id: 'tailscale-1', name: 'gateway', role: 'Tailnet device', platform: 'linux', health: { ...health, state: 'unknown', source: 'tailscale' }, freshness: 'fresh', capabilities: [], metrics: {}, addresses: ['100.64.0.10'], simulated: false }
+    const html = renderToStaticMarkup(<OverviewView data={{ system: { name: 'oxnet.work', site_name: 'Test', server_time: '2026-10-17T12:00:00Z', demo_mode: false }, nodes: [node], services: [], activity: [] }} query="" />)
+    expect(html).toContain('Tailscale inventory')
+    expect(html).toContain('Health, resource use, services and network links are not verified')
+    expect(html).not.toContain('All inventory and activity shown here is simulated')
+    expect(html).toContain('Not reported')
+  })
 })

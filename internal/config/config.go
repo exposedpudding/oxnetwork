@@ -31,6 +31,10 @@ type Config struct {
 		ClientSecretFile string `yaml:"client_secret_file"`
 		PublicURL        string `yaml:"public_url"`
 	} `yaml:"auth"`
+	Tailscale struct {
+		Tailnet    string `yaml:"tailnet"`
+		APIKeyFile string `yaml:"api_key_file"`
+	} `yaml:"tailscale"`
 }
 
 func Load(path string) (Config, error) {
@@ -78,6 +82,12 @@ func Load(path string) (Config, error) {
 	if value, ok := os.LookupEnv("OXNET_PUBLIC_URL"); ok {
 		c.Auth.PublicURL = value
 	}
+	if value, ok := os.LookupEnv("OXNET_TAILSCALE_TAILNET"); ok {
+		c.Tailscale.Tailnet = value
+	}
+	if value, ok := os.LookupEnv("OXNET_TAILSCALE_API_KEY_FILE"); ok {
+		c.Tailscale.APIKeyFile = value
+	}
 	if err := c.Validate(); err != nil {
 		return c, err
 	}
@@ -99,7 +109,12 @@ func (c Config) Validate() error {
 		return errors.New("actions are not implemented and cannot be enabled")
 	}
 	if !c.Features.DemoProvider {
-		return errors.New("only demo_provider is implemented")
+		if c.Tailscale.Tailnet == "" || c.Tailscale.APIKeyFile == "" {
+			return errors.New("live mode requires tailscale.tailnet and tailscale.api_key_file")
+		}
+		if !c.OIDCEnabled() {
+			return errors.New("live mode requires OIDC authentication")
+		}
 	}
 	if c.OIDCEnabled() {
 		if c.Auth.IssuerURL == "" || c.Auth.ClientID == "" || c.Auth.ClientSecretFile == "" || c.Auth.PublicURL == "" {

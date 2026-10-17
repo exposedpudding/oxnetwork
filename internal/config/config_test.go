@@ -57,3 +57,26 @@ func TestOIDCConfigurationRequiresCompleteSecureOrigin(t *testing.T) {
 		t.Fatal("subpath public URL accepted")
 	}
 }
+
+func TestLiveModeRequiresTailscaleAndOIDC(t *testing.T) {
+	c, err := Load("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Features.DemoProvider = false
+	if err := c.Validate(); err == nil {
+		t.Fatal("live mode accepted without Tailscale configuration")
+	}
+	c.Tailscale.Tailnet = "example.ts.net"
+	c.Tailscale.APIKeyFile = "/run/secrets/tailscale_api_key"
+	if err := c.Validate(); err == nil {
+		t.Fatal("live mode accepted without authentication")
+	}
+	c.Auth.IssuerURL = "https://auth.example.test/application/o/oxnet-work/"
+	c.Auth.ClientID = "oxnet-work"
+	c.Auth.ClientSecretFile = "/run/secrets/oidc_client_secret"
+	c.Auth.PublicURL = "https://oxnet.example.test"
+	if err := c.Validate(); err != nil {
+		t.Fatal(err)
+	}
+}

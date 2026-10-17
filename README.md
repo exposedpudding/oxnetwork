@@ -55,7 +55,7 @@ The default deployment should remain small enough to run comfortably as a single
 
 ## Current build
 
-Milestones 0 and 1 are complete, and the app has read-only Compute, Node Detail and Network screens. The app uses SQLite-backed observations from a deterministic demo provider. The production routes are `/`, `/compute`, `/nodes/{id}`, and `/network`. All displayed infrastructure and activity are marked as simulated. Authentication, live integrations, node actions, and deployment to a home gateway are not implemented. Do not expose this build publicly.
+Milestones 0 and 1 are complete, and the app has read-only Compute, Node Detail and Network screens. The app uses SQLite-backed observations from a deterministic demo provider by default. The production routes are `/`, `/compute`, `/nodes/{id}`, and `/network`. Demo records are marked as simulated. Authentik OIDC support and an opt-in read-only Tailscale device adapter are implemented but have not been verified on Home GW. Home GW deployment, node actions, and other live integrations remain pending. Do not expose the demo build publicly.
 
 ### Run locally
 
@@ -71,7 +71,7 @@ go test ./...
 go run ./cmd/server
 ```
 
-The app binds to `127.0.0.1:8080` by default. Check `http://127.0.0.1:8080/readyz`, then open the local UI. SQLite state lives in `./data/oxnet.db`. For a config file, run `go run ./cmd/server -config config/config.example.yaml`. The supported environment overrides are `OXNET_LISTEN`, `OXNET_DATA_DIR`, `OXNET_WEB_DIR`, and `OXNET_SITE_NAME`.
+The app binds to `127.0.0.1:8080` by default. Check `http://127.0.0.1:8080/readyz`, then open the local UI. SQLite state lives in `./data/oxnet.db`. For a config file, run `go run ./cmd/server -config config/config.example.yaml`. The supported environment overrides are shown in `config/config.example.yaml` and `internal/config/config.go`.
 
 Run the browser smoke tests from `web` with `npm run smoke`. The delegated multi-screen fixture harness has separate tests under `npm run smoke:fixtures`. Set `CHROMIUM_PATH` to a system Chromium executable if Playwright's managed browser is not installed.
 

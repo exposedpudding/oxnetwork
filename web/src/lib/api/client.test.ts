@@ -13,8 +13,7 @@ describe('api client', () => {
     expect(r).toEqual({ ok: true, data: { items: [] }, status: 200 });
     expect(f.mock.calls[0][0]).toBe('/api/v1/nodes');
     expect(f.mock.calls[0][1].credentials).toBe('same-origin');
-    expect(f.mock.calls[0][1].headers['X-Requested-With']).toBeUndefined();
-  });
+      });
 
   it('parses semantic errors', async () => {
     const f = vi.fn().mockResolvedValue(
@@ -43,7 +42,7 @@ describe('api client', () => {
     expect(rn.ok === false && rn.error.code).toBe('NETWORK_ERROR');
   });
 
-  it('passes the AbortSignal through and adds CSRF headers on mutations', async () => {
+  it('passes the AbortSignal through and attaches a CSRF token when the hook provides one', async () => {
     const f = vi.fn().mockResolvedValue(json({ id: 'a' }, 202));
     const ctl = new AbortController();
     await createApiClient({ fetch: f, csrfToken: () => 'tok' }).createNodeAction(
@@ -55,8 +54,18 @@ describe('api client', () => {
     expect(init.signal).toBe(ctl.signal);
     expect(init.method).toBe('POST');
     expect(init.headers['X-CSRF-Token']).toBe('tok');
-    expect(init.headers['X-Requested-With']).toBe('oxnet-web');
     expect(JSON.parse(init.body)).toEqual({ type: 'drain', idempotency_key: 'k' });
+  });
+});
+
+describe('implemented read endpoints', () => {
+  it('hits /system, /services/{id} and /activity', async () => {
+    const f = vi.fn().mockImplementation(async () => json({ items: [] }));
+    const c = createApiClient({ fetch: f });
+    await c.getSystem();
+    await c.getService('s 1');
+    await c.listActivity();
+    expect(f.mock.calls.map((x) => x[0])).toEqual(['/api/v1/system', '/api/v1/services/s%201', '/api/v1/activity']);
   });
 });
 
@@ -87,11 +96,13 @@ describe('event stream', () => {
     es.onopen!(new Event('open'));
     listeners['node.updated']({ data: '{"id":"n1"}' } as MessageEvent);
     listeners['activity.created']({ data: 'refetch' } as MessageEvent);
+    listeners['connected']({ data: '{"mode":"demo"}' } as MessageEvent);
     es.onerror!(new Event('error'));
     close();
     expect(events).toEqual([
       { type: 'node.updated', data: { id: 'n1' } },
       { type: 'activity.created', data: 'refetch' },
+      { type: 'connected', data: { mode: 'demo' } },
     ]);
     expect(statuses).toEqual(['connecting', 'open', 'reconnecting', 'closed']);
     expect(es.close).toHaveBeenCalled();

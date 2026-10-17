@@ -57,3 +57,11 @@ Record material decisions here. Do not rewrite history; append superseding decis
 **Decision:** Build v1 topology with SVG nodes/edges and deterministic layout, not WebGL/physics.
 
 **Reason:** Lower resource use, predictable UX, easier accessibility and testing.
+
+## ADR-008 - Local demo before authentication
+
+**Status:** Accepted for the initial implementation
+
+**Decision:** Run the first Overview build with a simulated, read-only provider. Bind the native server to loopback by default and publish the container port only on host loopback. Keep action endpoints and live integrations absent until authentication and authorization are built.
+
+**Reason:** This makes Milestones 0–1 testable without suggesting that fictional inventory is live or exposing an unauthenticated operations console.

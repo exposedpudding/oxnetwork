@@ -1,20 +1,8 @@
-import { defineConfig } from '@playwright/test';
-
-// PLAYWRIGHT_CHROMIUM_PATH lets sandboxes with a pre-installed browser skip the download.
-const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined;
+import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
-  testDir: './tests/e2e',
-  fullyParallel: true,
-  reporter: 'list',
-  use: {
-    baseURL: 'http://localhost:5173',
-    launchOptions: { executablePath },
-    screenshot: 'only-on-failure',
-  },
-  webServer: {
-    command: 'npm run dev -- --strictPort',
-    url: 'http://localhost:5173',
-    reuseExistingServer: true,
-  },
-});
+  testDir: './tests',
+  testIgnore: 'fixtures/**', // fixture-harness specs run via `npm run smoke:fixtures`
+  use: { baseURL: 'http://127.0.0.1:8080', browserName: 'chromium', launchOptions: process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH, args: ['--no-sandbox'] } : undefined },
+  webServer: { command: 'cd .. && go run ./cmd/server', url: 'http://127.0.0.1:8080/readyz', reuseExistingServer: !process.env.CI, timeout: 120000 }
+})

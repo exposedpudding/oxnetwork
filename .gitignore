@@ -1,4 +1,8 @@
-node_modules/
-dist/
-web/test-results/
-web/playwright-report/
+/data/
+/web/node_modules/
+/web/dist/
+/web/test-results/
+/web/playwright-report/
+*.db
+*.db-shm
+*.db-wal

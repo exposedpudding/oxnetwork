@@ -4,11 +4,10 @@ import { TopologyView } from '../features/topology/TopologyView';
 import { WorkflowDiagram } from '../features/workflows/WorkflowDiagram';
 import { WorkflowEditor } from '../features/workflows/WorkflowEditor';
 import type { Workflow } from '../features/workflows/types';
-import { freshnessOf } from '../lib/api/freshness';
 import type { Node } from '../lib/api/types';
 import { activity, computeSummary, editorOptions, FIXTURE_NOW, graph, graphDetails, jobs, metrics, nodes, services, workers, workflowRuns, workflows } from '../fixtures';
 
-const statusOf = (n: Pick<Node, 'health'>): Status => (freshnessOf(n.health, FIXTURE_NOW) === 'stale' ? 'stale' : n.health.state);
+const statusOf = (n: Pick<Node, 'health' | 'freshness'>): Status => (n.freshness === 'stale' ? 'stale' : n.health.state);
 const nodeName = (id: string) => nodes.find((n) => n.id === id)?.name ?? id;
 
 /** Drain action with a name-typed confirmation. Local-only: the harness never calls an API. */
@@ -38,13 +37,13 @@ export function OverviewPage() {
       <p className="ox-muted" style={{ margin: 0 }}>Infrastructure, services and activity at a glance. (Fixture data)</p>
       <div className="ox-grid" aria-label="Nodes">
         {nodes.map((n) => {
-          const m = metrics[n.id];
+          const m = n.metrics;
           const st = statusOf(n);
           return (
             <Card key={n.id} headingLevel={3} title={<span style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}><StatusDot status={st} />{n.name}</span>} actions={st === 'stale' ? <StaleBadge observedAt={n.health.observed_at} /> : undefined}>
               <p className="ox-muted" style={{ marginTop: 0 }}>{n.role ?? 'Role not reported'}</p>
               <MetricBar label="CPU" value={m?.cpu_percent} />
-              <MetricBar label="RAM" value={m?.memory_percent} />
+              <MetricBar label="RAM" value={m?.ram_percent} />
             </Card>
           );
         })}
@@ -55,14 +54,14 @@ export function OverviewPage() {
             {services.map((s) => (
               <li key={s.id} style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>{s.name}</span>
-                <StatusChip status={freshnessOf(s.health, FIXTURE_NOW) === 'stale' ? 'stale' : s.health.state} />
+                <StatusChip status={statusOf(s)} />
               </li>
             ))}
           </ul>
         </Card>
         <Card title="Recent activity">
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 8 }}>
-            {activity.map((a) => <li key={a.id}><StatusDot status={a.tone} /> {a.title} <span className="ox-muted">· {a.detail}</span></li>)}
+            {activity.map((a) => <li key={a.id}><StatusDot status={a.state as Status} /> {a.title} <span className="ox-muted">· {a.detail}</span></li>)}
           </ul>
         </Card>
         <Card title="Quick actions">
@@ -127,7 +126,7 @@ export function NodeDetailPage({ nodeId }: { nodeId: string }) {
         <p className="ox-muted" style={{ marginTop: 0 }}>{node.role} · {node.platform ?? 'Platform not reported'}</p>
         <div style={{ display: 'grid', gap: 8, maxWidth: 480 }}>
           <MetricBar label="CPU" value={m?.cpu_percent} />
-          <MetricBar label="RAM" value={m?.memory_percent} />
+          <MetricBar label="RAM" value={m?.ram_percent} />
           <MetricBar label="Disk" value={m?.storage_percent} />
           <div className="ox-metric" style={{ gridTemplateColumns: '88px 1fr' }}>
             <span className="ox-muted">Temperature</span>

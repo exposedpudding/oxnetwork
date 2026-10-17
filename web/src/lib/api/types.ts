@@ -1,6 +1,7 @@
-// Hand-maintained from specs/openapi.yaml (v0.1.0). Keep in sync with the spec.
-// Types marked "provisional" have no schema in the spec yet; they follow docs/API_SPEC.md
-// and should be replaced when the spec gains schemas for them.
+// Hand-maintained from specs/openapi.yaml and the responses the Go server implements today
+// (/system, /nodes, /services, /activity, /events). Keep in sync with the spec.
+// Types marked "provisional" are NOT implemented by the backend yet; they follow docs/API_SPEC.md
+// and must be replaced when the spec gains schemas for them.
 
 export type HealthState = 'healthy' | 'degraded' | 'unhealthy' | 'unknown' | 'disabled';
 
@@ -16,6 +17,19 @@ export interface SystemInfo {
   version: string;
   server_time: string;
   features?: string[];
+  site_name?: string;
+  /** True while the simulated provider is serving data. */
+  demo_mode?: boolean;
+}
+
+/** Server-computed freshness. Prefer this over deriving it client-side when present. */
+export type NodeFreshness = 'fresh' | 'stale' | 'unknown';
+
+export interface Metrics {
+  cpu_percent?: number;
+  ram_percent?: number;
+  vcpu?: number;
+  ram_gb?: number;
 }
 
 export interface Node {
@@ -26,6 +40,10 @@ export interface Node {
   health: Health;
   capabilities: string[];
   addresses?: Record<string, string>;
+  freshness?: NodeFreshness;
+  /** True when the record comes from the demo provider, not live infrastructure. */
+  simulated?: boolean;
+  metrics?: Metrics;
 }
 
 export interface ActionRequest {
@@ -51,6 +69,7 @@ export interface Action {
   created_at: string;
 }
 
+/** The graph types are in the spec, but /network/graph is not implemented by the server yet. */
 export interface GraphNode {
   id: string;
   kind: string;
@@ -70,25 +89,32 @@ export interface NetworkGraph {
   edges: GraphEdge[];
 }
 
-/** provisional: GET /nodes/{id}/metrics - only metrics the node reports are present. */
-export interface NodeMetrics {
+/** provisional (not implemented): GET /nodes/{id}/metrics. Superset of `Metrics`; only reported fields are present. */
+export interface NodeMetrics extends Metrics {
   observed_at: string;
-  cpu_percent?: number;
-  memory_percent?: number;
   storage_percent?: number;
   temperature_celsius?: number;
   latency_ms?: number;
 }
 
-/** provisional: GET /services */
 export interface Service {
   id: string;
   name: string;
   health: Health;
-  instance_count?: number;
+  freshness?: NodeFreshness;
+  simulated?: boolean;
 }
 
-/** provisional: GET /compute/summary. Informational only - vCPU is not fungible across nodes. */
+export interface Activity {
+  id: string;
+  title: string;
+  detail: string;
+  state: string;
+  occurred_at: string;
+  simulated?: boolean;
+}
+
+/** provisional (not implemented): GET /compute/summary. Informational only - vCPU is not fungible across nodes. */
 export interface ComputeSummary {
   total_vcpu: number;
   used_vcpu: number;
@@ -98,7 +124,7 @@ export interface ComputeSummary {
   observed_at: string;
 }
 
-/** provisional: GET /compute/workers */
+/** provisional (not implemented): GET /compute/workers */
 export interface Worker {
   id: string;
   node_id: string;
@@ -111,7 +137,7 @@ export interface Worker {
 
 export type JobState = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
 
-/** provisional: GET /jobs */
+/** provisional (not implemented): GET /jobs */
 export interface Job {
   id: string;
   name: string;

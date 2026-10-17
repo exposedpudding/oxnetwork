@@ -3,7 +3,8 @@
  * Values are synthetic (documentation address ranges, invented names) - not copied from mockups.
  * Everything is anchored to FIXTURE_NOW so output never depends on the wall clock.
  */
-import type { ComputeSummary, Job, NetworkGraph, Node, NodeMetrics, Service, Worker } from '../lib/api/types';
+import type { Activity, ComputeSummary, Job, NetworkGraph, Node, NodeMetrics, Service, Worker } from '../lib/api/types';
+import { freshnessOf } from '../lib/api/freshness';
 import type { EditorOptions, Workflow } from '../features/workflows/types';
 
 export const FIXTURE_NOW = Date.parse('2026-03-02T12:00:00Z');
@@ -12,28 +13,39 @@ const health = (state: Node['health']['state'], secondsAgo = 10) => ({
   state, observed_at: t(secondsAgo), stale_after_seconds: 60, source: 'fixture',
 });
 
-export const nodes: Node[] = [
-  { id: 'nd-0001', name: 'forge', role: 'Primary compute', platform: 'Debian 12', health: health('healthy'), capabilities: ['compute', 'docker', 'ssh', 'monitor'], addresses: { lan: '192.0.2.10' } },
-  { id: 'nd-0002', name: 'anvil', role: 'Secondary compute', platform: 'Debian 12', health: health('healthy'), capabilities: ['compute', 'docker', 'ssh', 'wake'], addresses: { lan: '192.0.2.11' } },
-  { id: 'nd-0003', name: 'beacon', role: 'Edge gateway', platform: 'Ubuntu 24.04', health: health('degraded'), capabilities: ['ssh', 'monitor'], addresses: { public: '198.51.100.7' } },
+/** Mirrors the server's `freshness` field, derived from health age so fixtures stay self-consistent. */
+const fresh = (h: Node['health']): NonNullable<Node['freshness']> => (freshnessOf(h, FIXTURE_NOW) === 'live' ? 'fresh' : 'stale');
+const withFreshness = <T extends { health: Node['health'] }>(x: T) => ({ ...x, freshness: fresh(x.health), simulated: true });
+
+const nodeSeed: Omit<Node, 'freshness' | 'simulated'>[] = [
+  { id: 'nd-0001', name: 'forge', role: 'Primary compute', platform: 'Debian 12', health: health('healthy'), capabilities: ['compute', 'docker', 'ssh', 'monitor'], addresses: { lan: '192.0.2.10' }, metrics: { cpu_percent: 21, ram_percent: 47, vcpu: 12, ram_gb: 32 } },
+  { id: 'nd-0002', name: 'anvil', role: 'Secondary compute', platform: 'Debian 12', health: health('healthy'), capabilities: ['compute', 'docker', 'ssh', 'wake'], addresses: { lan: '192.0.2.11' }, metrics: { cpu_percent: 9, ram_percent: 31, vcpu: 12, ram_gb: 32 } },
+  { id: 'nd-0003', name: 'beacon', role: 'Edge gateway', platform: 'Ubuntu 24.04', health: health('degraded'), capabilities: ['ssh', 'monitor'], addresses: { public: '198.51.100.7' }, metrics: { cpu_percent: 78, ram_percent: 92, vcpu: 4, ram_gb: 8 } },
   // Stale: last observed 10 minutes ago against a 60s TTL, and reports no metrics.
-  { id: 'nd-0004', name: 'sparrow', role: 'Edge device', health: health('healthy', 600), capabilities: ['agent'] },
+  { id: 'nd-0004', name: 'sparrow', role: 'Edge device', health: health('healthy', 600), capabilities: ['agent'], metrics: {} },
 ];
 
-/** Metrics keyed by node id. `nd-0003` omits temperature; `nd-0004` reports nothing. */
+export const nodes: Node[] = nodeSeed.map(withFreshness);
+
+/**
+ * provisional: per-node detail metrics (GET /nodes/{id}/metrics is not implemented yet).
+ * `nd-0003` omits temperature; `nd-0004` reports nothing.
+ */
 export const metrics: Record<string, NodeMetrics | undefined> = {
-  'nd-0001': { observed_at: t(10), cpu_percent: 21, memory_percent: 47, storage_percent: 63, temperature_celsius: 54, latency_ms: 2 },
-  'nd-0002': { observed_at: t(10), cpu_percent: 9, memory_percent: 31, storage_percent: 40, temperature_celsius: 48, latency_ms: 3 },
-  'nd-0003': { observed_at: t(10), cpu_percent: 78, memory_percent: 92, storage_percent: 55, latency_ms: 24 },
+  'nd-0001': { observed_at: t(10), cpu_percent: 21, ram_percent: 47, storage_percent: 63, temperature_celsius: 54, latency_ms: 2 },
+  'nd-0002': { observed_at: t(10), cpu_percent: 9, ram_percent: 31, storage_percent: 40, temperature_celsius: 48, latency_ms: 3 },
+  'nd-0003': { observed_at: t(10), cpu_percent: 78, ram_percent: 92, storage_percent: 55, latency_ms: 24 },
   'nd-0004': undefined,
 };
 
-export const services: Service[] = [
-  { id: 'sv-01', name: 'Gateway proxy', health: health('healthy'), instance_count: 1 },
-  { id: 'sv-02', name: 'Mesh VPN', health: health('healthy'), instance_count: 4 },
-  { id: 'sv-03', name: 'Job runner', health: health('degraded'), instance_count: 2 },
-  { id: 'sv-04', name: 'Metrics store', health: health('unknown', 900), instance_count: 1 },
+const serviceSeed: Omit<Service, 'freshness' | 'simulated'>[] = [
+  { id: 'sv-01', name: 'Gateway proxy', health: health('healthy') },
+  { id: 'sv-02', name: 'Mesh VPN', health: health('healthy') },
+  { id: 'sv-03', name: 'Job runner', health: health('degraded') },
+  { id: 'sv-04', name: 'Metrics store', health: health('unknown', 900) },
 ];
+
+export const services: Service[] = serviceSeed.map(withFreshness);
 
 export const computeSummary: ComputeSummary = {
   total_vcpu: 24, used_vcpu: 9, reserved_vcpu: 3, active_jobs: 2, queued_jobs: 1, observed_at: t(10),
@@ -119,8 +131,8 @@ export const workflowRuns = [
   { id: 'wr-3', workflow_id: 'wf-02', status: 'success' as const, started_at: t(5000), duration_seconds: 42 },
 ];
 
-export const activity = [
-  { id: 'ac-1', title: 'Backup completed', detail: 'forge', at: t(1200), tone: 'success' as const },
-  { id: 'ac-2', title: 'Edge gateway degraded', detail: 'beacon', at: t(2400), tone: 'degraded' as const },
-  { id: 'ac-3', title: 'Worker draining', detail: 'anvil-worker', at: t(9000), tone: 'running' as const },
+export const activity: Activity[] = [
+  { id: 'ac-1', title: 'Backup completed', detail: 'forge', occurred_at: t(1200), state: 'success', simulated: true },
+  { id: 'ac-2', title: 'Edge gateway degraded', detail: 'beacon', occurred_at: t(2400), state: 'degraded', simulated: true },
+  { id: 'ac-3', title: 'Worker draining', detail: 'anvil-worker', occurred_at: t(9000), state: 'running', simulated: true },
 ];

@@ -1,9 +1,10 @@
 /**
- * SSE helper for GET /api/v1/events. Deliberately separate from the REST client.
+ * SSE helper for GET /api/v1/events. Payloads may be `{refetch: true}` hints rather than resources. Deliberately separate from the REST client.
  * EventSource reconnects on its own; we only surface the connection status so the UI can
  * show a stale indicator while disconnected.
  */
 export const EVENT_TYPES = [
+  'connected', // sent once on open by the server; payload names the mode (e.g. demo)
   'node.updated',
   'node.health_changed',
   'service.updated',

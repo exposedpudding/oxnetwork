@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 // Runs against the fixture-backed dev harness (vite dev server), so no backend is required.
 
 test('Overview loads with node cards, services and a stale node', async ({ page }) => {
-  await page.goto('/#/dev/overview');
+  await page.goto('/fixtures.html#/dev/overview');
   await expect(page.getByRole('heading', { level: 1, name: 'Overview' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'forge' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Services health' })).toBeVisible();
@@ -15,7 +15,7 @@ test('Overview loads with node cards, services and a stale node', async ({ page 
 });
 
 test('Compute renders workers and jobs', async ({ page }) => {
-  await page.goto('/#/dev/compute');
+  await page.goto('/fixtures.html#/dev/compute');
   const workers = page.getByRole('table', { name: 'Workers' });
   await expect(workers.getByRole('row')).toHaveCount(3); // header + 2
   await expect(workers.getByText('Draining')).toBeVisible();
@@ -26,18 +26,18 @@ test('Compute renders workers and jobs', async ({ page }) => {
 });
 
 test('Node Detail shows "Not reported" for a missing metric and hides unsupported actions', async ({ page }) => {
-  await page.goto('/#/dev/node/nd-0003'); // reports no temperature, no compute capability
+  await page.goto('/fixtures.html#/dev/node/nd-0003'); // reports no temperature, no compute capability
   await expect(page.getByRole('heading', { name: 'beacon' })).toBeVisible();
   await expect(page.getByText('Temperature').locator('..')).toContainText('Not reported');
   await expect(page.getByRole('button', { name: 'Drain node' })).toHaveCount(0);
 
-  await page.goto('/#/dev/node/nd-0001'); // reports temperature
+  await page.goto('/fixtures.html#/dev/node/nd-0001'); // reports temperature
   await expect(page.getByText('Temperature').locator('..')).toContainText('54 °C');
   await page.screenshot({ path: 'test-results/node-detail.png', fullPage: true });
 });
 
 test('Network node selection changes the details pane', async ({ page }) => {
-  await page.goto('/#/dev/network');
+  await page.goto('/fixtures.html#/dev/network');
   const title = page.getByTestId('detail-title');
   await expect(title).toHaveText('beacon');
   await page.locator('svg [data-node-id="g-a"]').click();
@@ -53,7 +53,7 @@ test('Network node selection changes the details pane', async ({ page }) => {
 });
 
 test('Automations manual run requires confirmation', async ({ page }) => {
-  await page.goto('/#/dev/automations');
+  await page.goto('/fixtures.html#/dev/automations');
   await page.getByRole('button', { name: 'Run now' }).click();
   const dialog = page.getByRole('alertdialog');
   await expect(dialog).toContainText('Run "Nightly backup" now?');
@@ -67,7 +67,7 @@ test('Automations manual run requires confirmation', async ({ page }) => {
 });
 
 test('Automations: create a workflow via the editor', async ({ page }) => {
-  await page.goto('/#/dev/automations');
+  await page.goto('/fixtures.html#/dev/automations');
   await page.getByRole('button', { name: 'Create workflow' }).click();
   await page.getByRole('button', { name: 'Save workflow' }).click();
   await expect(page.getByText('Name is required.')).toBeVisible();
@@ -81,7 +81,7 @@ test('Automations: create a workflow via the editor', async ({ page }) => {
 });
 
 test('Destructive action needs a typed confirmation and is cancellable', async ({ page }) => {
-  await page.goto('/#/dev/node/nd-0001');
+  await page.goto('/fixtures.html#/dev/node/nd-0001');
   const opener = page.getByRole('button', { name: 'Drain node' });
   await opener.click();
   const dialog = page.getByRole('alertdialog');
@@ -99,7 +99,7 @@ test('Destructive action needs a typed confirmation and is cancellable', async (
 });
 
 test('Ctrl+K opens the command palette and navigates', async ({ page }) => {
-  await page.goto('/#/dev/overview');
+  await page.goto('/fixtures.html#/dev/overview');
   await expect(page.getByRole('heading', { level: 1, name: 'Overview' })).toBeVisible(); // app mounted
   await page.keyboard.press('Control+k');
   await expect(page.getByRole('dialog', { name: 'Command palette' })).toBeVisible();

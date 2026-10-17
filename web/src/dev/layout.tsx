@@ -36,6 +36,9 @@ export function DevLayout({ path, title, children }: { path: string; title: stri
       }}
     >
       <h1 className="ox-page-title">{title}</h1>
+      <p role="note" className="ox-muted" style={{ margin: 0 }}>
+        Fixture harness: static sample data, not connected to the API. Controls here change local state only.
+      </p>
       {children}
       <CommandPalette
         open={paletteOpen}

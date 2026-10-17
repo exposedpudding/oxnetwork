@@ -6,14 +6,16 @@
  * The UI is served by the control plane, so API calls are same-origin and authenticated by the
  * Secure/HttpOnly/SameSite session cookie (docs/SECURITY.md section 5). We therefore use
  * `credentials: 'same-origin'` and NEVER `include`. No tokens are stored or read in JS.
- * State-changing requests (POST/PUT/PATCH/DELETE) send `X-Requested-With: oxnet-web` as a
- * baseline CSRF defence; the server-side CSRF scheme is owned by the auth milestone and may
- * add a token header via the `csrfToken` option.
+ * CSRF: NO scheme is implemented yet (docs/DECISIONS.md ADR-008: the server exposes read-only
+ * endpoints until authentication exists). `csrfToken` is a placeholder hook so the auth
+ * milestone can attach its token; nothing here protects mutations on its own, and the
+ * production UI must not wire mutation controls to this client until auth/authorisation land.
  *
  * Errors never throw: every call resolves to a `Result`. Aborts resolve to code `ABORTED`.
  */
 import type {
   Action,
+  Activity,
   ActionRequest,
   ApiError,
   ComputeSummary,
@@ -65,7 +67,6 @@ export function createApiClient(options: ClientOptions = {}) {
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
     if (!SAFE_METHODS.has(method)) {
-      headers['X-Requested-With'] = 'oxnet-web';
       const token = options.csrfToken?.();
       if (token) headers['X-CSRF-Token'] = token;
     }
@@ -113,15 +114,24 @@ export function createApiClient(options: ClientOptions = {}) {
     getSystem: (o?: RequestOptions) => request<SystemInfo>('GET', '/system', o),
     listNodes: (o?: RequestOptions) => request<ListResponse<Node>>('GET', '/nodes', o),
     getNode: (nodeId: string, o?: RequestOptions) => request<Node>('GET', `/nodes/${id(nodeId)}`, o),
+    /** provisional: endpoint not implemented yet. */
     getNodeMetrics: (nodeId: string, o?: RequestOptions) =>
       request<NodeMetrics>('GET', `/nodes/${id(nodeId)}/metrics`, o),
+    /** provisional: no backend action endpoint exists until auth lands; do not wire into the production UI. */
     createNodeAction: (nodeId: string, body: ActionRequest, o?: RequestOptions) =>
       request<Action>('POST', `/nodes/${id(nodeId)}/actions`, { ...o, body }),
     listServices: (o?: RequestOptions) => request<ListResponse<Service>>('GET', '/services', o),
+    getService: (serviceId: string, o?: RequestOptions) => request<Service>('GET', `/services/${id(serviceId)}`, o),
+    listActivity: (o?: RequestOptions) => request<ListResponse<Activity>>('GET', '/activity', o),
+    /** provisional: not implemented by the server yet. */
     getComputeSummary: (o?: RequestOptions) => request<ComputeSummary>('GET', '/compute/summary', o),
+    /** provisional: not implemented by the server yet. */
     listWorkers: (o?: RequestOptions) => request<ListResponse<Worker>>('GET', '/compute/workers', o),
+    /** provisional: not implemented by the server yet. */
     listJobs: (o?: RequestOptions) => request<ListResponse<Job>>('GET', '/jobs', o),
+    /** provisional: not implemented by the server yet. */
     getNetworkGraph: (o?: RequestOptions) => request<NetworkGraph>('GET', '/network/graph', o),
+    /** provisional: not implemented. */
     runWorkflow: (workflowId: string, o?: RequestOptions) =>
       request<unknown>('POST', `/workflows/${id(workflowId)}/run`, o),
   };

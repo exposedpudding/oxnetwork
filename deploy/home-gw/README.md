@@ -10,6 +10,10 @@
 
 ## Prepare secrets on Home GW
 
+The easiest route is to run `bash bootstrap-authentik.sh` from this directory after checking Home GW capacity and existing services. It generates the PostgreSQL and Authentik secrets locally, keeps an existing `.env` intact, and starts only the Authentik services. After configuring the Authentik OIDC application, run `bash finish-oxnet.sh` from an interactive terminal; it prompts for the client ID and secret without echoing the secret, builds oxnet.work, checks secret readability, starts it and calls `/readyz`.
+
+The equivalent manual steps are below.
+
 From this directory on Home GW:
 
 ```sh

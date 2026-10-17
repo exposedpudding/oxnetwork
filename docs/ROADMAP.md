@@ -37,7 +37,7 @@ Acceptance: Overview is fully populated from API data, not frontend constants.
 
 - [ ] Worker/job domain.
 - [x] Read-only demo compute aggregation endpoint.
-- [ ] Placement policy package + tests.
+- [x] Pure placement policy package + tests (dispatch and decision persistence await a job provider).
 - [ ] Compute screen.
 - [-] Node detail endpoints/screens (node and metrics endpoints available; screen pending).
 - [x] Persisted node capability list.

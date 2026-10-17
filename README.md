@@ -55,7 +55,7 @@ The default deployment should remain small enough to run comfortably as a single
 
 ## Current build
 
-Milestones 0 and 1 are underway. The current app is a read-only Overview backed by a deterministic demo provider. All displayed infrastructure and activity are marked as simulated. Authentication, live integrations, node actions, and deployment to a home gateway are not implemented. Do not expose this build publicly.
+Milestones 0 and 1 are complete, and Milestone 2 has read-only Compute and Node Detail screens. The app uses SQLite-backed observations from a deterministic demo provider. The production routes are `/`, `/compute`, and `/nodes/{id}`. All displayed infrastructure and activity are marked as simulated. Authentication, live integrations, node actions, and deployment to a home gateway are not implemented. Do not expose this build publicly.
 
 ### Run locally
 
@@ -73,7 +73,7 @@ go run ./cmd/server
 
 The app binds to `127.0.0.1:8080` by default. Check `http://127.0.0.1:8080/readyz`, then open the local UI. SQLite state lives in `./data/oxnet.db`. For a config file, run `go run ./cmd/server -config config/config.example.yaml`. The supported environment overrides are `OXNET_LISTEN`, `OXNET_DATA_DIR`, `OXNET_WEB_DIR`, and `OXNET_SITE_NAME`.
 
-Run the browser smoke test from `web` with `npm run smoke`. Set `CHROMIUM_PATH` to a system Chromium executable if Playwright's managed browser is not installed.
+Run the browser smoke tests from `web` with `npm run smoke`. The delegated multi-screen fixture harness has separate tests under `npm run smoke:fixtures`. Set `CHROMIUM_PATH` to a system Chromium executable if Playwright's managed browser is not installed.
 
 ### Run in Docker
 

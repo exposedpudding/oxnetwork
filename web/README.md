@@ -2,7 +2,7 @@
 
 React + TypeScript + Vite frontend.
 
-- **Production app** (`src/App.tsx`, `src/main.tsx`, `src/api.ts`, owned by Codex): the Go-backed Overview. Unchanged by the delegated work.
+- **Production app** (`src/App.tsx`, `src/DetailViews.tsx`, `src/main.tsx`, `src/api.ts`, owned by Codex): Go-backed Overview, Compute and Node Detail routes. It uses the delegated typed client and presentation components for the new screens.
 - **Delegated packages CC-01..CC-05** (see `/CLAUDE.md`): reusable components, topology, API client, workflow editor, fixtures. They are not imported by the production entry yet, so they are excluded from the production bundle.
 - **Fixture harness** (`fixtures.html` -> `src/dev/`): multi-screen pages using static fixtures. Served only by `vite dev` at `/fixtures.html#/dev/overview`; the production build input is `index.html` only. Controls there change local state only.
 

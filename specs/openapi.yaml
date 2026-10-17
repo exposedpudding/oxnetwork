@@ -1,0 +1,216 @@
+openapi: 3.1.0
+info:
+  title: oxnet.work API
+  version: 0.1.0
+  description: Initial API contract for the oxnet.work control plane.
+servers:
+  - url: /api/v1
+paths:
+  /system:
+    get:
+      operationId: getSystem
+      responses:
+        '200':
+          description: System metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemInfo'
+  /nodes:
+    get:
+      operationId: listNodes
+      responses:
+        '200':
+          description: Nodes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Node'
+  /nodes/{nodeId}:
+    get:
+      operationId: getNode
+      parameters:
+        - $ref: '#/components/parameters/NodeId'
+      responses:
+        '200':
+          description: Node
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Node'
+  /nodes/{nodeId}/actions:
+    get:
+      operationId: listNodeActions
+      parameters:
+        - $ref: '#/components/parameters/NodeId'
+      responses:
+        '200':
+          description: Supported action capabilities
+    post:
+      operationId: createNodeAction
+      parameters:
+        - $ref: '#/components/parameters/NodeId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActionRequest'
+      responses:
+        '202':
+          description: Action accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Action'
+  /services:
+    get:
+      operationId: listServices
+      responses:
+        '200':
+          description: Services list
+  /compute/summary:
+    get:
+      operationId: getComputeSummary
+      responses:
+        '200':
+          description: Aggregate compute summary
+  /compute/workers:
+    get:
+      operationId: listWorkers
+      responses:
+        '200':
+          description: Compute workers
+  /jobs:
+    get:
+      operationId: listJobs
+      responses:
+        '200':
+          description: Jobs
+  /network/graph:
+    get:
+      operationId: getNetworkGraph
+      responses:
+        '200':
+          description: Topology graph
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkGraph'
+  /workflows:
+    get:
+      operationId: listWorkflows
+      responses:
+        '200':
+          description: Workflows
+    post:
+      operationId: createWorkflow
+      responses:
+        '201':
+          description: Workflow created
+  /workflows/{workflowId}/run:
+    post:
+      operationId: runWorkflow
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '202':
+          description: Workflow run accepted
+components:
+  parameters:
+    NodeId:
+      name: nodeId
+      in: path
+      required: true
+      schema: { type: string }
+  schemas:
+    SystemInfo:
+      type: object
+      required: [name, version, server_time]
+      properties:
+        name: { type: string, const: oxnet.work }
+        version: { type: string }
+        server_time: { type: string, format: date-time }
+        features:
+          type: array
+          items: { type: string }
+    Health:
+      type: object
+      required: [state, observed_at]
+      properties:
+        state:
+          type: string
+          enum: [healthy, degraded, unhealthy, unknown, disabled]
+        observed_at: { type: string, format: date-time }
+        stale_after_seconds: { type: integer, minimum: 0 }
+        source: { type: string }
+    Node:
+      type: object
+      required: [id, name, health, capabilities]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        role: { type: string }
+        platform: { type: string }
+        health: { $ref: '#/components/schemas/Health' }
+        capabilities:
+          type: array
+          items: { type: string }
+        addresses:
+          type: object
+          additionalProperties: { type: string }
+    ActionRequest:
+      type: object
+      required: [type, idempotency_key]
+      properties:
+        type: { type: string }
+        idempotency_key: { type: string }
+        parameters:
+          type: object
+          additionalProperties: true
+    Action:
+      type: object
+      required: [id, type, state, target_id, created_at]
+      properties:
+        id: { type: string }
+        type: { type: string }
+        state:
+          type: string
+          enum: [pending, dispatched, running, succeeded, failed, cancelled, expired]
+        target_id: { type: string }
+        created_at: { type: string, format: date-time }
+    GraphNode:
+      type: object
+      required: [id, kind, label]
+      properties:
+        id: { type: string }
+        kind: { type: string }
+        label: { type: string }
+        health: { $ref: '#/components/schemas/Health' }
+    GraphEdge:
+      type: object
+      required: [id, source, target, kind]
+      properties:
+        id: { type: string }
+        source: { type: string }
+        target: { type: string }
+        kind: { type: string }
+    NetworkGraph:
+      type: object
+      required: [nodes, edges]
+      properties:
+        nodes:
+          type: array
+          items: { $ref: '#/components/schemas/GraphNode' }
+        edges:
+          type: array
+          items: { $ref: '#/components/schemas/GraphEdge' }

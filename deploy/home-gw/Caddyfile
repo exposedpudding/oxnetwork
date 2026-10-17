@@ -1,0 +1,15 @@
+{
+    # Certificates are issued with Spaceship DNS-01 and mounted below.
+    auto_https disable_certs
+    admin off
+}
+
+auth.oxnet.work {
+    tls /certs/fullchain.pem /certs/key.pem
+    reverse_proxy authentik-server:9000
+}
+
+oxnet.work {
+    tls /certs/fullchain.pem /certs/key.pem
+    reverse_proxy oxnet-work:8080
+}

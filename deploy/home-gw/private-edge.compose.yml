@@ -1,0 +1,26 @@
+# Add with: docker compose -f compose.yml -f private-edge.compose.yml up -d private-https
+# Start only after installing a DNS-01 certificate covering both names.
+services:
+  private-https:
+    profiles: [private-edge]
+    image: docker.io/library/caddy:2.10.2-alpine
+    ports:
+      - "127.0.0.1:8445:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./certs:/certs:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      default:
+        aliases:
+          # Lets oxnet-work resolve its OIDC issuer to this proxy on the
+          # Compose network while browsers use the Tailscale Service address.
+          - auth.oxnet.work
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  caddy-data:
+  caddy-config:

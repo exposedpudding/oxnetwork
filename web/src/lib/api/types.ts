@@ -1,7 +1,7 @@
-// Hand-maintained from specs/openapi.yaml and the responses the Go server implements today
-// (/system, /nodes, /services, /activity, /events). Keep in sync with the spec.
-// Types marked "provisional" are NOT implemented by the backend yet; they follow docs/API_SPEC.md
-// and must be replaced when the spec gains schemas for them.
+// Hand-maintained from specs/openapi.yaml, which now describes only what the Go server implements
+// (/system, /nodes, /nodes/{id}/metrics, /services, /activity, /compute/*, /jobs, /events).
+// Types marked "provisional" are NOT in the spec/server yet (docs/API_SPEC.md planned work) and
+// must be replaced when the spec gains schemas for them.
 
 export type HealthState = 'healthy' | 'degraded' | 'unhealthy' | 'unknown' | 'disabled';
 
@@ -16,10 +16,10 @@ export interface SystemInfo {
   name: 'oxnet.work';
   version: string;
   server_time: string;
-  features?: string[];
-  site_name?: string;
+  features: string[];
+  site_name: string;
   /** True while the simulated provider is serving data. */
-  demo_mode?: boolean;
+  demo_mode: boolean;
 }
 
 /** Server-computed freshness. Prefer this over deriving it client-side when present. */
@@ -69,7 +69,7 @@ export interface Action {
   created_at: string;
 }
 
-/** The graph types are in the spec, but /network/graph is not implemented by the server yet. */
+/** provisional: the network graph endpoint was removed from the spec until implemented; these are the topology renderer's input shapes. */
 export interface GraphNode {
   id: string;
   kind: string;
@@ -89,9 +89,13 @@ export interface NetworkGraph {
   edges: GraphEdge[];
 }
 
-/** provisional (not implemented): GET /nodes/{id}/metrics. Superset of `Metrics`; only reported fields are present. */
+/**
+ * provisional extras: the implemented GET /nodes/{id}/metrics returns `Metrics` only. These extra
+ * fields (storage, temperature, latency) are not in the spec yet; the fixture harness uses them to
+ * exercise "Not reported" rendering.
+ */
 export interface NodeMetrics extends Metrics {
-  observed_at: string;
+  observed_at?: string;
   storage_percent?: number;
   temperature_celsius?: number;
   latency_ms?: number;
@@ -114,17 +118,18 @@ export interface Activity {
   simulated?: boolean;
 }
 
-/** provisional (not implemented): GET /compute/summary. Informational only - vCPU is not fungible across nodes. */
 export interface ComputeSummary {
   total_vcpu: number;
+  /** Demo placeholder (0) until a job provider exists; not a live scheduler reading. */
   used_vcpu: number;
   reserved_vcpu: number;
   active_jobs: number;
   queued_jobs: number;
   observed_at: string;
+  freshness: NodeFreshness;
+  simulated: boolean;
 }
 
-/** provisional (not implemented): GET /compute/workers */
 export interface Worker {
   id: string;
   node_id: string;
@@ -133,11 +138,13 @@ export interface Worker {
   vcpu_total: number;
   vcpu_used: number;
   health: Health;
+  freshness: NodeFreshness;
+  simulated: boolean;
 }
 
 export type JobState = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
 
-/** provisional (not implemented): GET /jobs */
+/** provisional shape: the spec only says `GET /jobs` returns `{items: object[]}` (empty in demo mode). */
 export interface Job {
   id: string;
   name: string;

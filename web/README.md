@@ -31,8 +31,8 @@ If the sandbox already has Chromium, set `CHROMIUM_PATH=/path/to/chrome` for eit
 ## Notes for integration
 
 - **Credentials policy** (documented in `client.ts`): same-origin session cookie, `credentials: 'same-origin'`, never `include`; no tokens in JS.
-- **CSRF / mutations**: no CSRF scheme exists yet (ADR-008: read-only server until auth). `createNodeAction` and `runWorkflow` are provisional, have no backend endpoint, and must not be wired into the production UI until authentication and authorisation land. The `csrfToken` option is only a placeholder hook for that milestone.
-- **API types** follow the implemented responses (`/system`, `/nodes`, `/services`, `/activity`, `/events`), including `ram_percent`, `freshness` and `simulated`. Compute, jobs, node metrics/extras, network graph and workflows are marked **provisional** (not implemented by the server); replace them when the spec gains schemas.
+- **CSRF / mutations**: no CSRF scheme exists yet (ADR-008: read-only server until auth). The client is GET-only and has no mutation methods; the auth milestone should add its CSRF scheme and typed mutations together. Mutation-style controls exist only in the dev fixture harness (local state).
+- **API types** follow `specs/openapi.yaml`, which now covers only implemented endpoints: `/system`, `/nodes`, `/nodes/{id}/metrics` (returns `Metrics`), `/services`, `/activity`, `/compute/summary`, `/compute/workers`, `/jobs`, `/events`. Anything else is marked **provisional** (job items, `NodeMetrics` extras such as temperature, topology graph input, workflow shapes). Compute `used_vcpu`/job counts are demo placeholders.
 - **Topology** takes a `NetworkGraph` and a `kindLabels` map and is decoupled from any provider. Layout depends only on node/edge ids, not input order.
 - **Components never hardcode hosts/actions.** Editor actions, targets and channels come from `EditorOptions` supplied by the host.
 - `ConfirmDangerDialog` is UI only; server-side confirmation, authorisation and audit remain required by `docs/SECURITY.md`.

@@ -49,12 +49,13 @@ export const services: Service[] = serviceSeed.map(withFreshness);
 
 export const computeSummary: ComputeSummary = {
   total_vcpu: 24, used_vcpu: 9, reserved_vcpu: 3, active_jobs: 2, queued_jobs: 1, observed_at: t(10),
+  freshness: 'fresh', simulated: true,
 };
 
-export const workers: Worker[] = [
+export const workers: Worker[] = ([
   { id: 'wk-01', node_id: 'nd-0001', name: 'forge-worker', state: 'online', vcpu_total: 12, vcpu_used: 6, health: health('healthy') },
   { id: 'wk-02', node_id: 'nd-0002', name: 'anvil-worker', state: 'draining', vcpu_total: 12, vcpu_used: 3, health: health('healthy') },
-];
+] as Omit<Worker, 'freshness' | 'simulated'>[]).map(withFreshness);
 
 export const jobs: Job[] = [
   { id: 'jb-01', name: 'index-docs', state: 'running', worker_id: 'wk-01', started_at: t(300) },

@@ -42,30 +42,34 @@ describe('api client', () => {
     expect(rn.ok === false && rn.error.code).toBe('NETWORK_ERROR');
   });
 
-  it('passes the AbortSignal through and attaches a CSRF token when the hook provides one', async () => {
-    const f = vi.fn().mockResolvedValue(json({ id: 'a' }, 202));
+  it('passes the AbortSignal through and sends no CSRF material on reads', async () => {
+    const f = vi.fn().mockResolvedValue(json({ cpu_percent: 5 }));
     const ctl = new AbortController();
-    await createApiClient({ fetch: f, csrfToken: () => 'tok' }).createNodeAction(
-      'n1',
-      { type: 'drain', idempotency_key: 'k' },
-      { signal: ctl.signal },
-    );
+    const r = await createApiClient({ fetch: f }).getNodeMetrics('n1', { signal: ctl.signal });
     const init = f.mock.calls[0][1];
+    expect(r.ok && r.data.cpu_percent).toBe(5);
+    expect(f.mock.calls[0][0]).toBe('/api/v1/nodes/n1/metrics');
     expect(init.signal).toBe(ctl.signal);
-    expect(init.method).toBe('POST');
-    expect(init.headers['X-CSRF-Token']).toBe('tok');
-    expect(JSON.parse(init.body)).toEqual({ type: 'drain', idempotency_key: 'k' });
+    expect(init.method).toBe('GET');
+    expect(init.body).toBeUndefined();
+    expect(Object.keys(init.headers)).toEqual(['Accept']);
   });
 });
 
 describe('implemented read endpoints', () => {
-  it('hits /system, /services/{id} and /activity', async () => {
+  it('hits /system, /services/{id}, /activity and the compute endpoints', async () => {
     const f = vi.fn().mockImplementation(async () => json({ items: [] }));
     const c = createApiClient({ fetch: f });
     await c.getSystem();
     await c.getService('s 1');
     await c.listActivity();
-    expect(f.mock.calls.map((x) => x[0])).toEqual(['/api/v1/system', '/api/v1/services/s%201', '/api/v1/activity']);
+    await c.getComputeSummary();
+    await c.listWorkers();
+    await c.listJobs();
+    expect(f.mock.calls.map((x) => x[0])).toEqual([
+      '/api/v1/system', '/api/v1/services/s%201', '/api/v1/activity',
+      '/api/v1/compute/summary', '/api/v1/compute/workers', '/api/v1/jobs',
+    ]);
   });
 });
 

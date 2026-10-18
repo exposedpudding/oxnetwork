@@ -2,7 +2,7 @@
 
 The optional Go agent reads CPU usage, physical RAM usage, system/root disk usage and capacity on Linux or Windows 11. It sends a small JSON report every 30 seconds to oxnet.work. It has no listener, Docker socket, action API or remote shell. A report is matched to the existing Tailscale inventory node ID, never to a display hostname. The server marks the report stale after 90 seconds. `healthy` on a host-agent observation means **recent reporting**, not that the host's services are healthy.
 
-Home GW and `DESKTOP-HHBRUDD` are the first installed agents as of 18 October 2026. Other six discovered devices have no host collector; their metrics remain unavailable. The Windows installation runs in the owner's interactive session and starts at logon, not at boot before sign-in.
+As of 18 October 2026, Home GW, `ox-c-01`, `ovh-vps` and Windows 11 `DESKTOP-HHBRUDD` report metrics. The other four discovered devices have no host collector. The Windows installation runs in the owner's interactive session and starts at logon, not at boot before sign-in.
 
 ## Server enrollment
 
@@ -40,6 +40,10 @@ journalctl -u oxnet-host-agent@tailscale-NODEID.service -n 30 --no-pager
 ```
 
 The systemd unit runs under a dynamic unprivileged user and receives the root-only token through `LoadCredential`. The machine must resolve and trust the private `oxnet.work` HTTPS endpoint. The Home GW variant at `deploy/home-gw/oxnet-host-agent@.service` uses the loopback port.
+
+On `ox-c-01` (`tailscale-2365559827781033`) and `ovh-vps` (`tailscale-8781071780610037`), the generic Linux unit is enabled at boot. A Tailscale grant allows only their tailnet IPs, `100.69.88.98` and `100.123.16.3`, to reach `svc:oxnet-work` on TCP 443. Both hosts have `100.90.240.202 oxnet.work` in `/etc/hosts` because their existing DNS configuration did not resolve the private name; the original file is backed up as `/etc/hosts.oxnetwork-before-2026-10-18`. If the Service VIP changes, update this mapping. The hosts still validate the trusted HTTPS certificate for `oxnet.work`.
+
+Use the host systemd unit for host metrics on Docker-capable Linux machines. Running this collector in a container would require host `/proc`, root filesystem and CPU/memory visibility, weakening isolation and complicating which filesystem the numbers describe. The agent has no Docker dependency or socket access.
 
 ## Install on Windows 11
 

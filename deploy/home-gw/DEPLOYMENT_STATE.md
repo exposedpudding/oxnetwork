@@ -65,3 +65,11 @@ This is the verified live state as of the local PC SSH session on 18 October 202
 3. Filebrowser Serve returned HTTP 200 with trusted TLS before the live switch; recheck if its route changes. Test a full restore on a separate host and arrange a second durable off-host copy.
 
 Do not publish either application through Pangolin or a public router port. Do not paste credentials into logs, Git, or chat.
+
+## Automations (Milestone 4) deployed — 18 October 2026
+
+- Home GW now runs the Milestone 4 build from local branch `claude/m4-automations` (commit `b53b3d8`, **not yet pushed to GitHub**; `/opt/oxnetwork/SOURCE_COMMIT.txt` says so). Before the change the host source matched `main` at `ea93b35` apart from line endings.
+- Migration 007 applied on start (adds workflow, run, step and audit tables and renames the unused migration-001 `audit_events` placeholder to `audit_events_v1_unused`). Startup, `/readyz`, 401 on unauthenticated API calls, and continued host-agent reports were verified. Live mode has no seeded workflows; create them on `https://oxnet.work/automations`. Only read-only checks and the `activity` notification channel execute (ADR-013).
+- Backups made before the change (root only): `/opt/oxnetwork-backups/source-pre-2026-10-18-m4.tar.gz` (source tree) and `/opt/oxnetwork-backups/oxnet-data-pre-2026-10-18-m4/` (SQLite data volume copy taken with the app stopped). The previous image is tagged `oxnet-work:home-gw-pre-m4`.
+- **Rollback:** `cd /opt/oxnetwork/deploy/home-gw && sudo docker tag oxnet-work:home-gw-pre-m4 oxnet-work:home-gw && sudo docker compose --env-file .env -f compose.yml -f private-edge.compose.yml -f live-tailscale.compose.yml -f live-host-agent.compose.yml up -d --no-build oxnet-work`. The older binary tolerates the new tables, so the data volume does not need restoring unless the database itself is damaged.
+- Unverified: a signed-in browser session on the new page (needs the owner's MFA sign-in) and a scheduled run firing on live inventory.

@@ -41,12 +41,13 @@ This is the verified live state as of the local PC SSH session on 18 October 202
 
 - The owner approved a persistent Tailscale OAuth trust credential named `oxnetworkHomeGW` with only `devices:core:read`. Tailscale's console confirmed that exact scope; no write scopes were selected. The client ID is in the root-only Compose `.env`, and its secret is only in `secrets/tailscale_oauth_client_secret` on Home GW, owned by `root:10001` mode 640. Do not print or copy either credential into Git or chat. The credential is tailnet-wide for device listing.
 - The app requests `devices:core:read` at Tailscale's OAuth token endpoint, caches the short-lived bearer token until renewal, and calls `GET /api/v2/tailnet/-/devices?fields=default`. A direct Home GW credential probe returned eight devices. The live Compose overlay is `live-tailscale.compose.yml`; all future oxnet-work Compose commands must include it. Without it, the app returns to demo mode.
-- After enabling the overlay and rebuilding, `/readyz` returned ready and SQLite contained eight Tailscale node observations with `simulated=0`, source `tailscale`, and zero simulated node observations. Host health remains `unknown` by design. Tailscale does not report CPU/RAM, service health, jobs or network links. The Overview banner explains this; Compute now says `Compute not connected` rather than `Demo mode` when running live inventory. Browser confirmation of the refreshed dashboard is pending.
+- After enabling the overlay and rebuilding, `/readyz` returned ready and SQLite contained eight Tailscale node observations with `simulated=0`, source `tailscale`, and zero simulated node observations. Host health remains `unknown` by design. Tailscale does not report CPU/RAM, service health, jobs or network links. The Overview banner explains this; Compute now says `Compute not connected` rather than `Demo mode` when running live inventory.
+- The authenticated Edge browser displayed the refreshed Overview for `liam`: `Tailscale inventory`, eight real tailnet devices, zero services, and no Demo Mode banner. It showed health as unverified and CPU/RAM as not reported. The owner also supplied a screenshot of the eight device cards.
 
 ## Remaining work
 
 1. Keep `akadmin` as requested. Decide whether Sign out should also end the Authentik SSO session. Both accounts remain app-bound.
-2. Confirm the owner's refreshed dashboard shows live Tailscale inventory. Add separate providers for host health, CPU/RAM, services, jobs and network links; do not infer those from Tailscale membership. An explicit in-container certificate/discovery probe is still useful.
+2. Add separate providers for host health, CPU/RAM, services, jobs and network links; do not infer those from Tailscale membership. An explicit in-container certificate/discovery probe is still useful.
 3. Filebrowser Serve returned HTTP 200 with trusted TLS before the live switch; recheck if its route changes. Test a full restore on a separate host and arrange a second durable off-host copy.
 
 Do not publish either application through Pangolin or a public router port. Do not paste credentials into logs, Git, or chat.

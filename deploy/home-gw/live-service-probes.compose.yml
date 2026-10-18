@@ -1,0 +1,20 @@
+# Optional verified service health (ADR-014). Requires the live Tailscale overlay.
+# 1. cp service-probes.example.yml service-probes.yml   (edit if needed)
+# 2. Add this file to every Compose command for oxnet-work:
+#    docker compose --env-file .env -f compose.yml -f private-edge.compose.yml \
+#      -f live-tailscale.compose.yml -f live-host-agent.compose.yml \
+#      -f live-service-probes.compose.yml up -d --build oxnet-work private-https
+# Without this overlay the app runs exactly as before and reports no probed services.
+services:
+  oxnet-work:
+    environment:
+      OXNET_SERVICE_PROBES_FILE: /run/service-probes.yml
+    volumes:
+      - ./service-probes.yml:/run/service-probes.yml:ro
+  private-https:
+    networks:
+      default:
+        aliases:
+          # Lets the oxnet-work container resolve its own public name to the Caddy
+          # edge, so the probe covers the proxy, its routing and the certificate.
+          - oxnet.work

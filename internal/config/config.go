@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -40,7 +42,29 @@ type Config struct {
 	HostAgent struct {
 		TokenDir string `yaml:"token_dir"`
 	} `yaml:"host_agent"`
+	// ServiceProbes are fixed, operator-configured read-only HTTP checks (ADR-014).
+	// They are never accepted from API requests.
+	ServiceProbes               []ServiceProbe `yaml:"service_probes"`
+	ServiceProbeIntervalSeconds int            `yaml:"service_probe_interval_seconds"`
 }
+
+// ServiceProbe describes one endpoint to check. The probe sends a GET with no
+// credentials, never follows redirects, always verifies TLS, and reads at most
+// a small slice of the response body.
+type ServiceProbe struct {
+	ID             string `yaml:"id"`
+	Name           string `yaml:"name"`
+	URL            string `yaml:"url"`
+	ExpectStatus   []int  `yaml:"expect_status"`
+	TimeoutSeconds int    `yaml:"timeout_seconds"`
+}
+
+const (
+	MaxServiceProbes           = 20
+	DefaultProbeIntervalSecond = 30
+)
+
+var probeIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,39}$`)
 
 func Load(path string) (Config, error) {
 	var c Config
@@ -102,6 +126,32 @@ func Load(path string) (Config, error) {
 	if value, ok := os.LookupEnv("OXNET_HOST_AGENT_TOKEN_DIR"); ok {
 		c.HostAgent.TokenDir = value
 	}
+	if value, ok := os.LookupEnv("OXNET_SERVICE_PROBES_FILE"); ok && value != "" {
+		body, err := os.ReadFile(value)
+		if err != nil {
+			return c, fmt.Errorf("service probes file: %w", err)
+		}
+		var file struct {
+			ServiceProbes               []ServiceProbe `yaml:"service_probes"`
+			ServiceProbeIntervalSeconds int            `yaml:"service_probe_interval_seconds"`
+		}
+		decoder := yaml.NewDecoder(strings.NewReader(string(body)))
+		decoder.KnownFields(true)
+		if err := decoder.Decode(&file); err != nil {
+			return c, fmt.Errorf("service probes file: %w", err)
+		}
+		c.ServiceProbes = file.ServiceProbes
+		if file.ServiceProbeIntervalSeconds != 0 {
+			c.ServiceProbeIntervalSeconds = file.ServiceProbeIntervalSeconds
+		}
+	}
+	if value, ok := os.LookupEnv("OXNET_SERVICE_PROBE_INTERVAL_SECONDS"); ok && value != "" {
+		seconds, err := strconv.Atoi(value)
+		if err != nil {
+			return c, errors.New("OXNET_SERVICE_PROBE_INTERVAL_SECONDS must be a whole number")
+		}
+		c.ServiceProbeIntervalSeconds = seconds
+	}
 	if err := c.Validate(); err != nil {
 		return c, err
 	}
@@ -124,6 +174,12 @@ func (c Config) Validate() error {
 	}
 	if c.HostAgent.TokenDir != "" && c.Features.DemoProvider {
 		return errors.New("host agent requires live inventory")
+	}
+	if len(c.ServiceProbes) > 0 && c.Features.DemoProvider {
+		return errors.New("service probes require live inventory")
+	}
+	if err := c.validateProbes(); err != nil {
+		return err
 	}
 	if !c.Features.DemoProvider {
 		hasOAuthID := c.Tailscale.OAuthClientID != ""
@@ -151,6 +207,55 @@ func (c Config) Validate() error {
 		}
 	}
 	return nil
+}
+
+// validateProbes rejects malformed probes. Zero values (no expect_status, no
+// timeout, no interval) are valid and receive their defaults in package probe.
+func (c Config) validateProbes() error {
+	if c.ServiceProbeIntervalSeconds != 0 && (c.ServiceProbeIntervalSeconds < 15 || c.ServiceProbeIntervalSeconds > 300) {
+		return errors.New("service_probe_interval_seconds must be between 15 and 300")
+	}
+	if len(c.ServiceProbes) > MaxServiceProbes {
+		return fmt.Errorf("at most %d service probes are supported", MaxServiceProbes)
+	}
+	seen := map[string]bool{}
+	for i, probe := range c.ServiceProbes {
+		label := fmt.Sprintf("service_probes[%d]", i)
+		if !probeIDPattern.MatchString(probe.ID) {
+			return fmt.Errorf("%s: id must be 1-40 lowercase letters, digits or dashes", label)
+		}
+		if seen[probe.ID] {
+			return fmt.Errorf("%s: duplicate id %q", label, probe.ID)
+		}
+		seen[probe.ID] = true
+		if len([]rune(probe.Name)) > 60 {
+			return fmt.Errorf("%s: name must be 60 characters or fewer", label)
+		}
+		u, err := url.Parse(probe.URL)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" {
+			return fmt.Errorf("%s: url must be an absolute http or https URL", label)
+		}
+		if u.User != nil || u.Fragment != "" {
+			return fmt.Errorf("%s: url must not contain credentials or a fragment", label)
+		}
+		for _, status := range probe.ExpectStatus {
+			if status < 100 || status > 599 {
+				return fmt.Errorf("%s: expect_status values must be HTTP status codes", label)
+			}
+		}
+		if probe.TimeoutSeconds < 0 || probe.TimeoutSeconds > 10 {
+			return fmt.Errorf("%s: timeout_seconds must be between 1 and 10", label)
+		}
+	}
+	return nil
+}
+
+// ProbeInterval is the time between probe rounds.
+func (c Config) ProbeInterval() int {
+	if c.ServiceProbeIntervalSeconds == 0 {
+		return DefaultProbeIntervalSecond
+	}
+	return c.ServiceProbeIntervalSeconds
 }
 
 func (c Config) OIDCEnabled() bool {

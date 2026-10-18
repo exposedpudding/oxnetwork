@@ -9,3 +9,4 @@
 /deploy/home-gw/.env
 /deploy/home-gw/secrets/
 /deploy/home-gw/certs/
+/deploy/home-gw/service-probes.yml

@@ -39,6 +39,20 @@ docker compose -f compose.yml -f private-edge.compose.yml -f live-tailscale.comp
 
 The Home GW collector runs as `oxnet-host-agent@tailscale-4670134924505329.service` and posts to the loopback app port. The Windows 11 `DESKTOP-HHBRUDD` collector starts from its current user's logon entry and posts through private HTTPS. Each has a different protected token. See [agent enrollment](../agents/README.md) before adding another host. A fresh sample means the agent is reporting; it does not verify other services. The agent endpoint requires its bearer token and returns 401 without one.
 
+### Optional service probes (verified service health)
+
+ADR-014 adds fixed read-only HTTP probes so the dashboard can show whether a private service answers on its own endpoint, separately from host-agent reporting. It is opt-in and changes nothing until you add the overlay. On Home GW:
+
+```bash
+cd /opt/oxnetwork/deploy/home-gw
+cp service-probes.example.yml service-probes.yml      # edit the probes if you wish; the file holds URLs only, no secrets
+docker compose --env-file .env -f compose.yml -f private-edge.compose.yml -f live-tailscale.compose.yml -f live-host-agent.compose.yml -f live-service-probes.compose.yml config --quiet
+# back up the app source and SQLite volume first, as in DEPLOYMENT_STATE.md, then:
+docker compose --env-file .env -f compose.yml -f private-edge.compose.yml -f live-tailscale.compose.yml -f live-host-agent.compose.yml -f live-service-probes.compose.yml up -d --build oxnet-work private-https
+```
+
+`private-https` is recreated so Caddy picks up the `oxnet.work` network alias; the app then probes `https://oxnet.work/readyz` and `https://auth.oxnet.work/-/health/live/` through the same trusted-certificate path browsers use. Every later Compose command for the app must include **all five** files (dropping the overlay stops probing and clears the probed services at the next refresh). Verify in the Overview: the "Services health" panel lists each probe with its result and endpoint, `/api/v1/services` shows `source: "http-probe"`, and temporarily pointing one probe at a path that does not exist (restart `oxnet-work` to reload the file) turns that row unhealthy with an `HTTP 404` detail without touching any real service. Do not stop Authentik to test: it would block sign-in. Rollback is to redeploy without the overlay.
+
 ## Prepare secrets on Home GW
 
 Authentik was reported running already; inspect that installation before using bootstrap. For a fresh Home GW installation, `bash bootstrap-authentik.sh` generates PostgreSQL and Authentik secrets locally, keeps an existing `.env` intact, and starts only the Authentik services. After configuring the Authentik OIDC application, run `sudo bash finish-oxnet.sh` from an interactive terminal; it prompts for the client ID and secret without echoing the secret, builds oxnet.work, checks secret readability, starts it and calls `/readyz`.

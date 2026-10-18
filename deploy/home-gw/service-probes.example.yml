@@ -1,0 +1,24 @@
+# Verified service health probes (ADR-014). Copy to service-probes.yml on Home GW,
+# edit, then include live-service-probes.compose.yml in every Compose command.
+#
+# Each probe is one GET from inside the oxnet-work container: no credentials, no
+# redirects, TLS always verified, response body discarded. A service is healthy only
+# when its own endpoint returns an expected status in time; a recent host-agent report
+# says nothing about service health. Probes are fixed here; the dashboard and API
+# cannot add or change them.
+#
+# The names below resolve inside the Compose network because
+# live-service-probes.compose.yml gives the Caddy edge aliases for both of them, so
+# these probes exercise the same trusted-certificate path browsers use.
+service_probe_interval_seconds: 30   # 15-300; a result goes stale after three missed rounds
+service_probes:
+  - id: oxnet-edge                   # lowercase letters, digits, dashes; shown as service "probe-oxnet-edge"
+    name: oxnet.work (private HTTPS edge)
+    url: https://oxnet.work/readyz
+    expect_status: [200]             # default is [200, 204]
+    timeout_seconds: 3               # 1-10, default 3
+  - id: authentik
+    name: Authentik (private HTTPS edge)
+    url: https://auth.oxnet.work/-/health/live/
+    expect_status: [200, 204]
+    timeout_seconds: 3

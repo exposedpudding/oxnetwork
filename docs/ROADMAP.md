@@ -85,8 +85,9 @@ Acceptance met for Home GW, OX-C-01, the OVH VPS and three Windows 11 PCs (DESKT
 ## Milestone 6 - Tailscale + Docker read-only
 
 - [x] Opt-in Tailscale read-only device discovery adapter (Home GW active with OAuth `devices:core:read`).
+- [x] Verified service health: fixed, operator-configured read-only HTTP probes, merged into the inventory snapshot (ADR-014; branch `claude/service-health`, awaiting Codex review and deployment).
 - [ ] Reconcile discovered tailnet nodes with existing inventory.
-- [ ] Docker inventory through agent.
+- [ ] Docker inventory through agent (design options and a recommendation are in ADR-015, status Proposed).
 - [ ] Real containers on Node Detail.
 - [ ] Integration health UI.
 

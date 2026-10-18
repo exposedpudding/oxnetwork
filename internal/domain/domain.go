@@ -47,6 +47,11 @@ type Service struct {
 	Health    Health `json:"health"`
 	Freshness string `json:"freshness"`
 	Simulated bool   `json:"simulated"`
+	// Endpoint is the exact address a probe checked (query string removed);
+	// Detail is the short result, e.g. "HTTP 204 in 41 ms". Both are empty for
+	// services that are not probed.
+	Endpoint string `json:"endpoint,omitempty"`
+	Detail   string `json:"detail,omitempty"`
 }
 
 type Activity struct {

@@ -71,9 +71,9 @@ func (r Repository) storeSnapshot(ctx context.Context, snapshot domain.Snapshot,
 		if _, err := tx.ExecContext(ctx, `INSERT INTO inventory_services(id,name,updated_at) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,updated_at=excluded.updated_at`, service.ID, service.Name, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO service_observations(service_id,health_state,observed_at,stale_after_seconds,source,simulated) VALUES(?,?,?,?,?,?)
-			ON CONFLICT(service_id) DO UPDATE SET health_state=excluded.health_state,observed_at=excluded.observed_at,stale_after_seconds=excluded.stale_after_seconds,source=excluded.source,simulated=excluded.simulated`,
-			service.ID, service.Health.State, service.Health.ObservedAt.Format(time.RFC3339Nano), service.Health.StaleAfterSeconds, service.Health.Source, service.Simulated); err != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO service_observations(service_id,health_state,observed_at,stale_after_seconds,source,simulated,endpoint,detail) VALUES(?,?,?,?,?,?,?,?)
+			ON CONFLICT(service_id) DO UPDATE SET health_state=excluded.health_state,observed_at=excluded.observed_at,stale_after_seconds=excluded.stale_after_seconds,source=excluded.source,simulated=excluded.simulated,endpoint=excluded.endpoint,detail=excluded.detail`,
+			service.ID, service.Health.State, service.Health.ObservedAt.Format(time.RFC3339Nano), service.Health.StaleAfterSeconds, service.Health.Source, service.Simulated, service.Endpoint, service.Detail); err != nil {
 			return err
 		}
 	}
@@ -184,14 +184,14 @@ func (r Repository) Snapshot(ctx context.Context, now time.Time) (domain.Snapsho
 	if err := r.applyHostObservations(ctx, &result, now); err != nil {
 		return result, err
 	}
-	rows, err = r.DB.QueryContext(ctx, `SELECT s.id,s.name,o.health_state,o.observed_at,o.stale_after_seconds,o.source,o.simulated FROM inventory_services s JOIN service_observations o ON o.service_id=s.id ORDER BY s.id`)
+	rows, err = r.DB.QueryContext(ctx, `SELECT s.id,s.name,o.health_state,o.observed_at,o.stale_after_seconds,o.source,o.simulated,o.endpoint,o.detail FROM inventory_services s JOIN service_observations o ON o.service_id=s.id ORDER BY s.id`)
 	if err != nil {
 		return result, err
 	}
 	for rows.Next() {
 		var s domain.Service
 		var observed string
-		if err := rows.Scan(&s.ID, &s.Name, &s.Health.State, &observed, &s.Health.StaleAfterSeconds, &s.Health.Source, &s.Simulated); err != nil {
+		if err := rows.Scan(&s.ID, &s.Name, &s.Health.State, &observed, &s.Health.StaleAfterSeconds, &s.Health.Source, &s.Simulated, &s.Endpoint, &s.Detail); err != nil {
 			rows.Close()
 			return result, err
 		}

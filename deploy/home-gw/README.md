@@ -53,6 +53,10 @@ docker compose --env-file .env -f compose.yml -f private-edge.compose.yml -f liv
 
 `private-https` is recreated so Caddy picks up the `oxnet.work` network alias; the app then probes `https://oxnet.work/readyz` and `https://auth.oxnet.work/-/health/live/` through the same trusted-certificate path browsers use. Every later Compose command for the app must include **all five** files (dropping the overlay stops probing and clears the probed services at the next refresh). Verify in the Overview: the "Services health" panel lists each probe with its result and endpoint, `/api/v1/services` shows `source: "http-probe"`, and temporarily pointing one probe at a path that does not exist (restart `oxnet-work` to reload the file) turns that row unhealthy with an `HTTP 404` detail without touching any real service. Do not stop Authentik to test: it would block sign-in. Rollback is to redeploy without the overlay.
 
+### Database backup and restore
+
+`backup-oxnet.sh`, `restore-oxnet.sh` and the optional `oxnetwork-backup.timer` back up and restore the oxnet.work SQLite database (ADR-016). They need an image built from this version (the commands are `oxnet-work backup|verify|restore`). Read [docs/BACKUP_RESTORE.md](../../docs/BACKUP_RESTORE.md) first: it explains what is and is not in a backup, the restore test procedure, and how to undo a restore. Backups are root-only files under `/opt/oxnetwork-backups/oxnet-db`; keep a copy off the host.
+
 ## Prepare secrets on Home GW
 
 Authentik was reported running already; inspect that installation before using bootstrap. For a fresh Home GW installation, `bash bootstrap-authentik.sh` generates PostgreSQL and Authentik secrets locally, keeps an existing `.env` intact, and starts only the Authentik services. After configuring the Authentik OIDC application, run `sudo bash finish-oxnet.sh` from an interactive terminal; it prompts for the client ID and secret without echoing the secret, builds oxnet.work, checks secret readability, starts it and calls `/readyz`.

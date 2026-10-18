@@ -154,3 +154,21 @@ Record material decisions here. Do not rewrite history; append superseding decis
 **Out of scope:** any container action (restart, stop, logs). Those belong to Milestone 9 and need typed actions, confirmation and idempotency.
 
 **Open questions for Codex:** whether the bridge should be a separate Go binary in `cmd/` or a mode of `cmd/host-agent`; whether container health should feed `health_condition` workflow triggers.
+
+## ADR-016 - Application database backup and restore (Milestone 11)
+
+**Status:** Implemented by Claude Code on branch `claude/backup-restore` (stacked on `claude/service-health`) on 19 October 2026. Awaiting Codex review; not deployed.
+
+**Decision:**
+
+- **Mechanism.** `oxnet-work backup|verify|restore` are subcommands of the server binary, so the tool always matches the schema of the build that runs it and needs no extra image. Backups use SQLite `VACUUM INTO` from a read-only connection: one consistent snapshot while the app runs, no locks held on the writer, no file copying of a WAL database.
+- **No credentials in backups.** `auth_sessions` and `oidc_login_flows` are emptied in the copy and the file is rewritten (`VACUUM`, journal mode `DELETE`), so session and CSRF tokens do not survive in free pages. Sign-in is required again after a restore.
+- **Integrity before publishing.** A backup is written to `<dest>.partial`, checked (`PRAGMA integrity_check`, `schema_migrations` present, schema version not newer than the build), made owner-only, renamed into place, and given a `.sha256` file. `verify` also compares the checksum file when it exists, because a modified file can still be a readable database.
+- **Refuse unknown futures.** A backup whose schema is newer than the running build is refused for restore (and cannot be produced by the same build). Older backups restore and the app migrates them forward on start (migrations are additive).
+- **Restore safety.** Restore verifies the backup first, requires `-force` to replace an existing database, saves the current database as a verified `.pre-restore-<time>` backup, stages the new file beside the target, verifies the staged copy, removes the old WAL and shared-memory files, then renames into place and verifies again. It refuses when another connection blocks a full WAL checkpoint. An idle connection from a running app is invisible to SQLite, so the supported path is `restore-oxnet.sh`, which stops the container first. The scripts run their short-lived containers as root with no network because the backup directory is root-only, and return ownership of `/data` to uid 10001 afterwards.
+- **Operations.** `deploy/home-gw/backup-oxnet.sh` (snapshot inside the running container, copy out, re-verify, prune to the newest `KEEP`), `restore-oxnet.sh`, and an optional systemd timer (`oxnetwork-backup.timer`, daily at 02:30 with up to 10 minutes of jitter). The timer is shipped but not installed.
+- **Not decided here.** Encryption of backups at rest, automatic off-host replication, and retention beyond a simple count. These involve key and destination choices that belong to the owner.
+
+**Reason:** Milestone 11 needs a documented, tested way to recover the application database, and the owner's standing item was a restore proven on a separate host. Using SQLite's own snapshot avoids both stopping the app and the corruption risk of copying a live WAL database, and removing session data means a stolen backup cannot be used to impersonate the owner.
+
+**Verification:** `go test -race` covers snapshot during concurrent writes, secret bytes absent from the file, audit triggers preserved, corruption, truncation and checksum mismatch detection, foreign databases, newer schema, restore with and without `-force`, safety copy, in-use refusal, and the CLI. The scripts were run against a sandbox container, and a real Home GW backup was restored on OX-C-01 (details in `docs/BACKUP_RESTORE.md`).

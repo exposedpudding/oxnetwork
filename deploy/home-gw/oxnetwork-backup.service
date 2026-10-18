@@ -1,0 +1,9 @@
+[Unit]
+Description=Back up the oxnet.work database
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/oxnetwork/deploy/home-gw/backup-oxnet.sh
+Nice=10

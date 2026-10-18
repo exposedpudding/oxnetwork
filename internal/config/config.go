@@ -263,3 +263,31 @@ func (c Config) OIDCEnabled() bool {
 }
 
 func (c Config) DatabasePath() string { return filepath.Join(c.Server.DataDir, "oxnet.db") }
+
+// DatabasePathFor resolves only the database location (config file, then
+// OXNET_DATA_DIR) without validating the rest of the configuration, so
+// maintenance commands such as backup work without the live-mode secrets.
+func DatabasePathFor(configPath string) (string, error) {
+	dir := "./data"
+	if configPath != "" {
+		body, err := os.ReadFile(configPath)
+		if err != nil {
+			return "", err
+		}
+		var partial struct {
+			Server struct {
+				DataDir string `yaml:"data_dir"`
+			} `yaml:"server"`
+		}
+		if err := yaml.Unmarshal(body, &partial); err != nil {
+			return "", fmt.Errorf("config: %w", err)
+		}
+		if partial.Server.DataDir != "" {
+			dir = partial.Server.DataDir
+		}
+	}
+	if value, ok := os.LookupEnv("OXNET_DATA_DIR"); ok && value != "" {
+		dir = value
+	}
+	return filepath.Join(dir, "oxnet.db"), nil
+}

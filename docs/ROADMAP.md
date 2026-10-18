@@ -137,8 +137,8 @@ Public Pangolin exposure should not be enabled before this milestone is complete
 
 ## Milestone 11 - backup, polish, owner release
 
-- [ ] Application DB backup/restore command.
-- [ ] Restore test procedure.
+- [x] Application DB backup/restore command (`oxnet-work backup|verify|restore`, ADR-016; branch `claude/backup-restore`, awaiting Codex review; Home GW scripts and an optional systemd timer are shipped but not deployed or installed).
+- [x] Restore test procedure ([docs/BACKUP_RESTORE.md](BACKUP_RESTORE.md)), executed once on 18 October 2026: a real Home GW backup restored on OX-C-01 and read back through the app. Still open from the standing list: restoring Authentik, certificates and secrets on a separate host, a second off-host copy, and repeating the app restore on Home GW itself after deployment.
 - [ ] settings/integration health views.
 - [ ] error/empty/stale state polish.
 - [ ] tablet layout pass.

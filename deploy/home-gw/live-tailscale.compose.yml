@@ -4,11 +4,12 @@ services:
   oxnet-work:
     environment:
       OXNET_DEMO_PROVIDER: "false"
-      OXNET_TAILSCALE_TAILNET: ${OXNET_TAILSCALE_TAILNET:?Set OXNET_TAILSCALE_TAILNET in .env}
-      OXNET_TAILSCALE_API_KEY_FILE: /run/secrets/tailscale_api_key
+      OXNET_TAILSCALE_TAILNET: "-"
+      OXNET_TAILSCALE_OAUTH_CLIENT_ID: ${OXNET_TAILSCALE_OAUTH_CLIENT_ID:?Set OXNET_TAILSCALE_OAUTH_CLIENT_ID in .env}
+      OXNET_TAILSCALE_OAUTH_CLIENT_SECRET_FILE: /run/secrets/tailscale_oauth_client_secret
     secrets:
-      - tailscale_api_key
+      - tailscale_oauth_client_secret
 
 secrets:
-  tailscale_api_key:
-    file: ./secrets/tailscale_api_key
+  tailscale_oauth_client_secret:
+    file: ./secrets/tailscale_oauth_client_secret

@@ -13,13 +13,13 @@ function timeLabel(value: string) {
   return new Date(value).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
 }
 
-export function ComputeView({ data, query }: { data: ComputeData; query: string }) {
+export function ComputeView({ data, query, demoMode }: { data: ComputeData; query: string; demoMode: boolean }) {
   const lower = query.trim().toLowerCase()
   const workers = data.workers.filter(worker => worker.name.toLowerCase().includes(lower))
   const jobs = data.jobs.filter(job => job.name.toLowerCase().includes(lower))
   return <>
-    <div className="page-heading"><div><p className="eyebrow">Command centre / Compute</p><h1>Compute</h1><p>Reported worker capacity and job activity.</p></div><span className="timestamp">Observed {timeLabel(data.summary.observed_at)}</span></div>
-    {data.summary.simulated && <div className="demo-banner" role="status"><strong>Demo mode</strong><span>Capacity is simulated. No job provider or scheduler is connected.</span></div>}
+    <div className="page-heading"><div><p className="eyebrow">Command centre / Compute</p><h1>Compute</h1><p>Reported worker capacity and job activity.</p></div><span className="timestamp">{data.workers.length ? `Observed ${timeLabel(data.summary.observed_at)}` : 'No compute reports'}</span></div>
+    {demoMode ? <div className="demo-banner" role="status"><strong>Demo mode</strong><span>Capacity is simulated. No job provider or scheduler is connected.</span></div> : <div className="demo-banner" role="status"><strong>Compute not connected</strong><span>Tailscale reports device identity only. CPU, RAM, worker capacity and jobs are not available from this source.</span></div>}
     {data.workers.length > 0 && data.summary.freshness !== 'fresh' && <div className="compute-notice" role="status">Worker capacity is {data.summary.freshness}; it may no longer be available.</div>}
     <section aria-label="Compute summary" className="ox-grid compute-summary">
       <StatCard label="Reported capacity" value={data.workers.length ? `${data.summary.total_vcpu} vCPU` : 'Not reported'} detail={data.workers.length ? data.summary.freshness === 'fresh' ? 'Current worker reports' : 'Includes stale worker reports' : 'No compute provider connected'} />

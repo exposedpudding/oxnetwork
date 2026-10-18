@@ -35,8 +35,8 @@ type device struct {
 }
 
 func (c Client) Snapshot(ctx context.Context, now time.Time) (domain.Snapshot, error) {
-	if c.Tailnet == "" || c.APIKey == "" {
-		return domain.Snapshot{}, errors.New("Tailscale tailnet and API key are required")
+	if c.Tailnet == "" || (c.APIKey == "" && c.HTTP == nil) {
+		return domain.Snapshot{}, errors.New("Tailscale tailnet and credentials are required")
 	}
 	base := c.BaseURL
 	if base == "" {
@@ -47,7 +47,9 @@ func (c Client) Snapshot(ctx context.Context, now time.Time) (domain.Snapshot, e
 	if err != nil {
 		return domain.Snapshot{}, err
 	}
-	req.SetBasicAuth(c.APIKey, "")
+	if c.APIKey != "" {
+		req.SetBasicAuth(c.APIKey, "")
+	}
 	req.Header.Set("Accept", "application/json")
 	client := c.HTTP
 	if client == nil {

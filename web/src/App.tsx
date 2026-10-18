@@ -94,7 +94,7 @@ export function App() {
   const content = page.kind === 'overview'
     ? data ? <OverviewView data={data} query={query} /> : error ? <ErrorState message={error} /> : <div className="loading" role="status">Loading overview…</div>
     : page.kind === 'compute'
-      ? compute ? <ComputeView data={compute} query={query} /> : pageError ? <ErrorState message={pageError} /> : <div className="loading" role="status">Loading compute…</div>
+      ? compute ? <ComputeView data={compute} query={query} demoMode={data?.system.demo_mode ?? true} /> : pageError ? <ErrorState message={pageError} /> : <div className="loading" role="status">Loading compute…</div>
       : page.kind === 'network'
         ? network ? <NetworkView data={network} query={query} demoMode={data?.system.demo_mode} /> : pageError ? <ErrorState message={pageError} /> : <div className="loading" role="status">Loading network…</div>
       : page.kind === 'node'

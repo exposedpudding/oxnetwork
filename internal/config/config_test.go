@@ -79,4 +79,14 @@ func TestLiveModeRequiresTailscaleAndOIDC(t *testing.T) {
 	if err := c.Validate(); err != nil {
 		t.Fatal(err)
 	}
+	c.Tailscale.APIKeyFile = ""
+	c.Tailscale.OAuthClientID = "client-id"
+	c.Tailscale.OAuthClientSecretFile = "/run/secrets/tailscale_oauth_client_secret"
+	if err := c.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	c.Tailscale.APIKeyFile = "/run/secrets/tailscale_api_key"
+	if err := c.Validate(); err == nil {
+		t.Fatal("live mode accepted two Tailscale credential types")
+	}
 }

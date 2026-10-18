@@ -42,3 +42,51 @@ func TestSnapshotDoesNotExposeKeyOnAPIError(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestOAuthDeviceReadAndTokenReuse(t *testing.T) {
+	tokenRequests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v2/oauth/token":
+			tokenRequests++
+			if r.Method != http.MethodPost || r.ParseForm() != nil || r.Form.Get("grant_type") != "client_credentials" || r.Form.Get("client_id") != "client-id" || r.Form.Get("client_secret") != "client-secret" || r.Form.Get("scope") != deviceReadScope {
+				t.Error("unexpected OAuth token request")
+				http.Error(w, "bad token request", http.StatusBadRequest)
+				return
+			}
+			_, _ = w.Write([]byte(`{"access_token":"short-lived-token","token_type":"Bearer","expires_in":3600,"scope":"devices:core:read"}`))
+		case "/api/v2/tailnet/-/devices":
+			if r.Method != http.MethodGet || r.Header.Get("Authorization") != "Bearer short-lived-token" || r.URL.Query().Get("fields") != "default" {
+				t.Error("unexpected device request")
+				http.Error(w, "bad device request", http.StatusUnauthorized)
+				return
+			}
+			_, _ = w.Write([]byte(`{"devices":[{"id":"123","hostname":"home-gw","os":"linux","addresses":["100.64.0.10"]}]}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	client := Client{Tailnet: "-", HTTP: newOAuthClient("client-id", "client-secret", server.URL+"/api/v2/oauth/token", server.Client()), BaseURL: server.URL}
+	for range 2 {
+		snapshot, err := client.Snapshot(context.Background(), time.Now())
+		if err != nil || len(snapshot.Nodes) != 1 || snapshot.Nodes[0].Simulated {
+			t.Fatalf("unexpected OAuth inventory: %+v, %v", snapshot, err)
+		}
+	}
+	if tokenRequests != 1 {
+		t.Fatalf("OAuth token requests: %d, want 1", tokenRequests)
+	}
+}
+
+func TestOAuthErrorHidesSecret(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "client-secret", http.StatusUnauthorized)
+	}))
+	defer server.Close()
+	client := Client{Tailnet: "-", HTTP: newOAuthClient("client-id", "client-secret", server.URL, server.Client()), BaseURL: server.URL}
+	_, err := client.Snapshot(context.Background(), time.Now())
+	if err == nil || strings.Contains(err.Error(), "client-secret") || !strings.Contains(err.Error(), "401") {
+		t.Fatalf("unexpected OAuth error: %v", err)
+	}
+}

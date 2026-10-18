@@ -63,17 +63,31 @@ func main() {
 	} else {
 		mode = "tailscale"
 		interval = 60 * time.Second
-		key, err := os.ReadFile(cfg.Tailscale.APIKeyFile)
-		if err != nil {
-			log.Error("Tailscale API key file unavailable", "error", err)
-			os.Exit(1)
+		client := tailscale.Client{Tailnet: cfg.Tailscale.Tailnet}
+		if cfg.Tailscale.OAuthClientID != "" {
+			secret, err := os.ReadFile(cfg.Tailscale.OAuthClientSecretFile)
+			if err != nil {
+				log.Error("Tailscale OAuth client secret file unavailable", "error", err)
+				os.Exit(1)
+			}
+			clientSecret := strings.TrimSpace(string(secret))
+			if clientSecret == "" {
+				log.Error("Tailscale OAuth client secret file is empty")
+				os.Exit(1)
+			}
+			client.HTTP = tailscale.NewOAuthClient(cfg.Tailscale.OAuthClientID, clientSecret)
+		} else {
+			key, err := os.ReadFile(cfg.Tailscale.APIKeyFile)
+			if err != nil {
+				log.Error("Tailscale API key file unavailable", "error", err)
+				os.Exit(1)
+			}
+			client.APIKey = strings.TrimSpace(string(key))
+			if client.APIKey == "" {
+				log.Error("Tailscale API key file is empty")
+				os.Exit(1)
+			}
 		}
-		apiKey := strings.TrimSpace(string(key))
-		if apiKey == "" {
-			log.Error("Tailscale API key file is empty")
-			os.Exit(1)
-		}
-		client := tailscale.Client{Tailnet: cfg.Tailscale.Tailnet, APIKey: apiKey}
 		// Clear the demo on source change while retaining the last successful
 		// live observations across restarts and temporary API failures.
 		existing, err := repo.Snapshot(context.Background(), time.Now().UTC())

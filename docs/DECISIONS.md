@@ -81,3 +81,11 @@ Record material decisions here. Do not rewrite history; append superseding decis
 **Decision:** Serve `oxnet.work` and `auth.oxnet.work` at a dedicated Tailscale Service VIP through a loopback-bound Caddy edge on Home GW. Resolve both names to that VIP through tailnet split DNS. Use a trusted certificate issued through Spaceship DNS-01 and keep both names without public A/AAAA answers. Run Authentik and its PostgreSQL database alongside the Go/SQLite app. Keep all inventory simulated until an owner-approved live adapter is enabled.
 
 **Reason:** The owner requested private access with familiar HTTPS names while preserving the existing node Serve routes and avoiding public ingress. The verified live state and remaining checks are in `deploy/home-gw/DEPLOYMENT_STATE.md`.
+
+## ADR-011 - Scoped live Tailscale device inventory
+
+**Status:** Implemented and verified on 18 October 2026
+
+**Decision:** Activate the read-only Tailscale adapter on Home GW using an OAuth trust credential scoped only to `devices:core:read`. The app exchanges the client credential for short-lived access tokens and renews them automatically. Keep the OAuth secret in a root-owned Compose secret file on Home GW. Show live device identity, tailnet addresses and Tailscale last-seen values without presenting them as host health or resource metrics.
+
+**Reason:** The owner requested live dashboard data after verifying private access. Traditional Tailscale API tokens grant broad API access; the scoped OAuth client limits the app to the device list endpoint. Separate adapters are needed for CPU, RAM, services, jobs and network connections.

@@ -1,6 +1,6 @@
 # Home GW deployment plan
 
-**Current live status:** See [DEPLOYMENT_STATE.md](DEPLOYMENT_STATE.md), updated 18 October 2026. Private networking, TLS, Authentik OIDC, and oxnet.work are running. The owner signed in as `liam` with MFA and reached the demo dashboard. `akadmin` remains available with MFA at the owner's request. A full restore on a separate host remains. Preserve the existing certificate, DNS, Tailscale Service, `.env`, and secrets when continuing.
+**Current live status:** See [DEPLOYMENT_STATE.md](DEPLOYMENT_STATE.md), updated 18 October 2026. Private networking, TLS, Authentik OIDC, and oxnet.work are running. The owner signed in as `liam` with MFA; `akadmin` remains available with MFA at the owner's request. The dashboard now imports real Tailscale device identity through a read-only OAuth client. Host health and resource metrics are not yet connected. A full restore on a separate host remains. Preserve the certificate, DNS, Tailscale Service, `.env`, and secrets when continuing.
 
 **Historical state (prior handoff):** Authentik was healthy on Home GW while oxnet.work was stopped. The owner chose Home GW for both services and private Tailscale access for `auth.oxnet.work` and `oxnet.work`. Use the live state document above before running any setup commands below.
 
@@ -20,14 +20,14 @@ The owner chose **private split DNS**. Home GW has Tailscale 1.102.4, and `svc:o
 
 ### Optional Tailscale inventory after sign-in works
 
-Keep the default demo mode until a tailnet client can sign in at `https://oxnet.work`. Then create a Tailscale API key with the least device-read permission available and save it **on Home GW** as `secrets/tailscale_api_key`; keep it out of Git and chat. Set `OXNET_TAILSCALE_TAILNET` in the local `.env` to the tailnet name. The container runs as UID 10001, so make the file readable to that UID (for example `root:10001`, mode `0640`) while keeping the `secrets` directory private. Check the overlay, then recreate just the app:
+After verifying private OIDC sign-in, create a Tailscale OAuth trust credential with only **Devices → Core → Read** (`devices:core:read`). A traditional Tailscale API token has full API access, so do not use it for this deployment. Add the OAuth client ID as `OXNET_TAILSCALE_OAUTH_CLIENT_ID` in the root-only local `.env`; save the client secret **on Home GW** as `secrets/tailscale_oauth_client_secret`, never in Git or chat. The container runs as UID 10001, so make the secret file readable to that UID (`root:10001`, mode `0640`) while keeping the `secrets` directory private. The overlay uses `-` as Tailscale's shorthand for the credential's tailnet. Check the overlay, then recreate just the app:
 
 ```bash
-docker compose --env-file .env -f compose.yml -f live-tailscale.compose.yml config --quiet
-docker compose --env-file .env -f compose.yml -f live-tailscale.compose.yml up -d oxnet-work
+docker compose --env-file .env -f compose.yml -f private-edge.compose.yml -f live-tailscale.compose.yml config --quiet
+docker compose --env-file .env -f compose.yml -f private-edge.compose.yml -f live-tailscale.compose.yml up -d oxnet-work
 ```
 
-Confirm `GET /api/v1/system` says `"demo_mode":false` after login, then check that `/api/v1/nodes` lists Tailscale devices with `"simulated":false` and `"state":"unknown"`. Verify the API key stays outside logs and responses. Switching to live mode clears old demo inventory; a failed Tailscale poll leaves an empty list initially, or the last successful list after a later outage, until a retry succeeds. Live inventory reports device identity only, not host health or topology. A future `docker compose` invocation for oxnet-work must include this overlay to keep live mode enabled.
+Confirm `GET /api/v1/system` says `"demo_mode":false` after login, then check that `/api/v1/nodes` lists Tailscale devices with `"simulated":false` and `"state":"unknown"`. Verify the OAuth secret and access token stay outside logs and responses. Switching to live mode clears old demo inventory; a failed Tailscale poll leaves an empty list initially, or the last successful list after a later outage, until a retry succeeds. Live inventory reports device identity only, not host health or topology. A future `docker compose` invocation for oxnet-work must include this overlay to keep live mode enabled.
 
 ## Prepare secrets on Home GW
 
@@ -71,7 +71,7 @@ docker compose --env-file .env -f compose.yml up -d oxnet-work
 docker compose --env-file .env -f compose.yml ps
 ```
 
-Verify the loopback health endpoint on Home GW, then use a tailnet-connected browser at `https://oxnet.work`. An unauthenticated browser must be redirected to Authentik; an unauthenticated API request must receive `401`. Sign in and sign out, inspect the secure session cookie, and confirm both names fail from outside the tailnet. The dashboard is still **simulated read-only data** until live adapters are configured; Authentik does not make that data live.
+Verify the loopback health endpoint on Home GW, then use a tailnet-connected browser at `https://oxnet.work`. An unauthenticated browser must be redirected to Authentik; an unauthenticated API request must receive `401`. Sign in and sign out, inspect the secure session cookie, and confirm both names fail from outside the tailnet. Without the live Tailscale overlay the dashboard uses **simulated read-only data**; Authentik alone does not make that data live.
 
 Back up the Authentik PostgreSQL database, `authentik-data`, the oxnet-work SQLite volume, and the two secret files. Test restore on a separate instance. Never rotate `AUTHENTIK_SECRET_KEY` without following Authentik's key rotation procedure.
 

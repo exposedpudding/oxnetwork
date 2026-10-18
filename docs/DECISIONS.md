@@ -100,7 +100,7 @@ Record material decisions here. Do not rewrite history; append superseding decis
 
 ## ADR-013 - Automations: workflows, runner and audit (Milestone 4)
 
-**Status:** Accepted by owner for implementation on 18 October 2026 (Codex paused; work done by Claude Code at the owner's direction)
+**Status:** Accepted by owner, reviewed and merged by Codex in PR #1 on 18 October 2026. Manual and scheduled read-only runs verified on Home GW.
 
 **Decision:**
 
@@ -110,7 +110,7 @@ Record material decisions here. Do not rewrite history; append superseding decis
 - **Actions in v1.** Only read-only inventory checks execute: `check_node_health` and `check_node_freshness`. Mutating actions (Wake-on-LAN, drain, service restart, backup) are not offered and workflows referencing them are rejected with `ACTION_NOT_SUPPORTED` until Milestone 9 delivers capability checks, confirmation UX and idempotency.
 - **Notifications.** The only channel is `activity` (recorded on the run and in the audit log). External channels need secret storage, which remains a separate decision.
 - **Run states.** `queued -> running -> succeeded | failed | cancelled`. Step states: `pending | running | succeeded | failed | skipped`. `cancelled` is reserved; there is no cancel endpoint yet. Runs left `queued` or `running` by a restart are marked `failed` with code `INTERRUPTED`.
-- **Failure handling.** `stop` marks remaining steps `skipped` and the run `failed`. `continue` runs the remaining steps and the run still ends `failed` if any step failed. No automatic retries. Each step has a 30 second timeout and each run a 5 minute timeout.
+- **Failure handling.** `stop` marks remaining steps `skipped` and the run `failed`. `continue` runs the remaining steps and the run still ends `failed` if any step failed. No automatic retries. Each step has a 30 second timeout and each run a 5 minute timeout. The runner applies the step deadline to inventory reads as well as action execution (review fix in PR #1).
 - **Concurrency.** One active run per workflow. A second start returns `409 RUN_IN_PROGRESS`; scheduled triggers that collide are skipped and audited.
 - **Audit.** `audit_events` is append-only, enforced by SQLite triggers that abort `UPDATE` and `DELETE`. Workflow create, update, enable, disable, run start and run finish each append an event with actor, target, outcome and sanitised detail.
 - **Mutation gate.** Mutating endpoints require either an authenticated session or a loopback-bound server (`mutations_enabled` in `/api/v1/system`). They additionally require a JSON content type and a same-origin `Origin` header when one is sent. With OIDC enabled the auth middleware now enforces `X-CSRF-Token` on every non-safe `/api/` request. This resolves the CSRF gap noted in ADR-008 for these endpoints; role and scope checks remain Milestone 10.

@@ -65,7 +65,7 @@ Acceptance: topology is generated from graph data and remains usable without ani
 - [x] Run history with step results.
 - [x] Append-only audit events (enforced by SQLite triggers).
 - [x] Automations screen, including create/edit, enable/disable and confirmed manual runs.
-- [ ] Not yet: run cancellation, retries, external notification channels (need secret storage), role and scope checks (Milestone 10), and a Playwright run of the Automations smoke test in CI.
+- [ ] Not yet: run cancellation, retries, external notification channels (need secret storage) and role and scope checks (Milestone 10).
 
 Acceptance: a demo workflow can run end-to-end and produce auditable step results. Met: the simulated demo workflows run against demo inventory and record step outcomes and audit events.
 

@@ -18,6 +18,13 @@ type fakeInventory struct {
 	snapshot func(now time.Time) domain.Snapshot
 }
 
+type waitingInventory struct{}
+
+func (waitingInventory) Snapshot(ctx context.Context, _ time.Time) (domain.Snapshot, error) {
+	<-ctx.Done()
+	return domain.Snapshot{}, ctx.Err()
+}
+
 func (f fakeInventory) Snapshot(_ context.Context, now time.Time) (domain.Snapshot, error) {
 	return f.snapshot(now), nil
 }
@@ -293,6 +300,27 @@ func TestRunnerReportsMissingNodeAndUnsupportedAction(t *testing.T) {
 	}
 	run := h.runAndWait(t, wf.ID, TriggerManual)
 	if run.State != RunFailed || run.Steps[0].ErrorCode != "NODE_NOT_FOUND" || run.Steps[1].ErrorCode != "ACTION_NOT_SUPPORTED" {
+		t.Fatalf("run: %+v", run)
+	}
+}
+
+func TestRunnerStepTimeoutBoundsInventoryRead(t *testing.T) {
+	h := newHarness(t, waitingInventory{})
+	h.runner.StepTimeout = 20 * time.Millisecond
+	h.runner.RunTimeout = 2 * time.Second
+	wf, err := h.store.CreateWorkflow(context.Background(), Definition{
+		Name: "Timed inventory check", Enabled: true, Trigger: Trigger{Type: TriggerManual},
+		Steps: []Step{{ID: "check", Type: StepAction, Name: "Check", ActionType: "check_node_health", TargetID: "demo-worker"}},
+	}, false, "tester")
+	if err != nil {
+		t.Fatal(err)
+	}
+	started := time.Now()
+	run := h.runAndWait(t, wf.ID, TriggerManual)
+	if elapsed := time.Since(started); elapsed > time.Second {
+		t.Fatalf("step timeout took %s", elapsed)
+	}
+	if run.State != RunFailed || run.Steps[0].ErrorCode != "TIMEOUT" {
 		t.Fatalf("run: %+v", run)
 	}
 }

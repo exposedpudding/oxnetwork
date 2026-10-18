@@ -172,11 +172,11 @@ func (r *Runner) execute(run Run, wf Workflow) {
 	publish(RunRunning)
 
 	var snapshot *domain.Snapshot
-	getSnapshot := func() (domain.Snapshot, error) {
+	getSnapshot := func(stepCtx context.Context) (domain.Snapshot, error) {
 		if snapshot != nil {
 			return *snapshot, nil
 		}
-		loaded, err := r.Inventory.Snapshot(ctx, r.Store.now())
+		loaded, err := r.Inventory.Snapshot(stepCtx, r.Store.now())
 		if err != nil {
 			return domain.Snapshot{}, err
 		}
@@ -250,7 +250,7 @@ func (r *Runner) execute(run Run, wf Workflow) {
 
 // executeStep returns the step output and an error code; an empty code means
 // success.
-func (r *Runner) executeStep(ctx context.Context, wf Workflow, step Step, snapshot func() (domain.Snapshot, error)) (string, string) {
+func (r *Runner) executeStep(ctx context.Context, wf Workflow, step Step, snapshot func(context.Context) (domain.Snapshot, error)) (string, string) {
 	if err := ctx.Err(); err != nil {
 		return "The step did not start before its time limit.", "TIMEOUT"
 	}
@@ -260,8 +260,11 @@ func (r *Runner) executeStep(ctx context.Context, wf Workflow, step Step, snapsh
 	case StepAction:
 		switch step.ActionType {
 		case "check_node_health", "check_node_freshness":
-			inventory, err := snapshot()
+			inventory, err := snapshot(ctx)
 			if err != nil {
+				if ctx.Err() != nil {
+					return "The step exceeded its time limit.", "TIMEOUT"
+				}
 				return "Inventory is unavailable.", "INVENTORY_UNAVAILABLE"
 			}
 			return checkNode(inventory, step.ActionType, step.TargetID, r.Store.now())

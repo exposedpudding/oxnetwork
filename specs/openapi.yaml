@@ -138,7 +138,7 @@ paths:
       operationId: listJobs
       responses:
         '200':
-          description: Empty job list in demo mode; no job provider is connected
+          description: Agent sessions reported by configured compute providers (ADR-017); empty when none is configured
           content:
             application/json:
               schema:
@@ -147,7 +147,23 @@ paths:
                 properties:
                   items:
                     type: array
-                    items: { type: object }
+                    items: { $ref: '#/components/schemas/Job' }
+  /compute/providers:
+    get:
+      operationId: listComputeProviders
+      description: Configured compute servers (OpenCode) with reachability and session counts. Empty when none is configured.
+      responses:
+        '200':
+          description: Providers
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/ComputeProvider' }
   /network/graph:
     get:
       operationId: getNetworkGraph
@@ -681,6 +697,43 @@ components:
         observed_at: { type: string, format: date-time }
         freshness: { type: string, enum: [fresh, stale, unknown] }
         simulated: { type: boolean }
+        jobs_source: { type: string, description: 'Present only when a compute provider supplies active_jobs (for example "opencode"). queued_jobs stays 0: OpenCode has no queue.' }
+        jobs_observed_at: { type: string, format: date-time }
+    Job:
+      type: object
+      required: [id, name, state, provider_id, source, cost, tokens, started_at, updated_at, freshness]
+      description: One agent session reported by a compute provider. Prompts, messages and file contents are never included.
+      properties:
+        id: { type: string, description: '<provider id>:<session id>' }
+        name: { type: string, maxLength: 80, description: Session title, whitespace-collapsed and truncated }
+        state: { type: string, enum: [running, idle], description: 'running = busy or retrying; idle is not a success or failure result' }
+        worker_id: { type: string, description: Inventory node the provider runs on, when configured }
+        provider_id: { type: string }
+        source: { type: string, enum: [opencode] }
+        agent: { type: string }
+        model: { type: string, description: '<provider>/<model>' }
+        cost: { type: number }
+        tokens: { type: integer, description: Sum of input, output, reasoning and cache tokens }
+        started_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        freshness: { type: string, enum: [fresh, stale], description: Stale when the provider has not been read successfully for three polling rounds }
+    ComputeProvider:
+      type: object
+      required: [id, name, kind, endpoint, state, active_sessions, total_sessions, observed_at, stale_after_seconds, freshness]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        kind: { type: string, enum: [opencode] }
+        endpoint: { type: string, description: 'Address polled, without credentials or query' }
+        node_id: { type: string }
+        state: { type: string, enum: [online, offline] }
+        version: { type: string }
+        active_sessions: { type: integer }
+        total_sessions: { type: integer }
+        detail: { type: string, description: 'Why the provider is offline or only partly readable' }
+        observed_at: { type: string, format: date-time }
+        stale_after_seconds: { type: integer }
+        freshness: { type: string, enum: [fresh, stale] }
     ActionRequest:
       type: object
       required: [type, idempotency_key]

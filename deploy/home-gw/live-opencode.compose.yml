@@ -1,0 +1,22 @@
+# Optional OpenCode compute providers (ADR-017, docs/OPENCODE.md). Requires the live overlays.
+# 1. cp opencode-servers.example.yml opencode-servers.yml    (edit if needed)
+# 2. Create secrets/opencode_ox_c_01 with the OpenCode server password
+#    (owner action: root:10001, mode 640; never commit or paste it).
+# 3. Check Home GW can reach the server: curl -u opencode:<password> http://100.69.88.98:4096/global/health
+#    (the container reaches it through the host's Tailscale connection, so a Tailscale grant must allow it).
+# 4. Add this file to every Compose command for oxnet-work (all overlay files together):
+#    docker compose --env-file .env -f compose.yml -f private-edge.compose.yml \
+#      -f live-tailscale.compose.yml -f live-host-agent.compose.yml -f live-opencode.compose.yml \
+#      up -d --build oxnet-work
+# Without this overlay the app runs exactly as before and reports no jobs.
+services:
+  oxnet-work:
+    environment:
+      OXNET_OPENCODE_SERVERS_FILE: /run/opencode-servers.yml
+    volumes:
+      - ./opencode-servers.yml:/run/opencode-servers.yml:ro
+    secrets:
+      - opencode_ox_c_01
+secrets:
+  opencode_ox_c_01:
+    file: ./secrets/opencode_ox_c_01

@@ -172,3 +172,22 @@ Record material decisions here. Do not rewrite history; append superseding decis
 **Reason:** Milestone 11 needs a documented, tested way to recover the application database, and the owner's standing item was a restore proven on a separate host. Using SQLite's own snapshot avoids both stopping the app and the corruption risk of copying a live WAL database, and removing session data means a stolen backup cannot be used to impersonate the owner.
 
 **Verification:** `go test -race` covers snapshot during concurrent writes, secret bytes absent from the file, audit triggers preserved, corruption, truncation and checksum mismatch detection, foreign databases, newer schema, restore with and without `-force`, safety copy, in-use refusal, and the CLI. The scripts were run against a sandbox container, and a real Home GW backup was restored on OX-C-01 (details in `docs/BACKUP_RESTORE.md`).
+
+## ADR-017 - OpenCode compute providers: read-only worker and session discovery (Milestone 8)
+
+**Status:** Implemented by Claude Code on branch `claude/opencode-adapter` (stacked on `claude/backup-restore`) on 19 October 2026. Awaiting Codex review; not deployed. The contract is in [OPENCODE.md](OPENCODE.md).
+
+**Decision:**
+
+- **Read-only, four endpoints.** The adapter issues only `GET /global/health`, `GET /project`, `GET /session` and `GET /session/status`. It never reads messages, parts, files, permissions or configuration, and never sends a prompt, abort or delete. A test fails if a poller makes any other request.
+- **Providers are fixed configuration.** `opencode_servers` (or the file named by `OXNET_OPENCODE_SERVERS_FILE`) lists up to 10 servers; live mode only; unknown keys rejected; the URL may not carry credentials; the password comes from `password_file`, read once at startup (missing or empty stops startup). Servers cannot be added through the API or UI.
+- **Per-project reads.** OpenCode scopes the session list and status to a project directory. Each poll reads `/project` and then the list and status once for the default project and once per project directory (at most 20), merged by session id. This was found by testing against the real server (a busy session in another project was invisible to unscoped calls); the first version of the adapter had this bug and is the reason for the rule.
+- **Mapping.** A server is a *provider* (`online` only if healthy). A root session is a *job* with state `running` (busy or retry) or `idle`; archived sessions are hidden. An idle session is not a success or failure result, so `JobState` gains `idle` rather than reusing `succeeded`. `queued_jobs` stays 0 (no queue) and `used_vcpu` stays a placeholder (not measured).
+- **Honest freshness.** Readings are held in memory only (live activity, not inventory). A reading is stale after three polling rounds; an offline server keeps its last session list shown as stale, and jobs on an offline or stale provider never count as active.
+- **Privacy.** Session titles can contain prompt text, so they are whitespace-collapsed and truncated to 80 characters, and exposed only through the authenticated API.
+- **Neutral types.** `internal/compute` defines `Provider`, `Job`, `State` and `Source`, so another provider can supply the same API without changing the handlers. New endpoint `GET /api/v1/compute/providers`; `GET /api/v1/jobs` and `GET /api/v1/compute/summary` use the source when one is configured.
+- **Not decided here.** Submitting or cancelling work (needs the Milestone 9 action framework and a decision on credentials the web server would hold), placement across OpenCode servers, a multi-node pool and primary election, and adopting the v2 API.
+
+**Reason:** Milestone 8 asks that the Compute page reflect real OpenCode worker and job state without giving the dashboard control over agents. Reading only metadata keeps the privacy and security surface small, and reading every project is the difference between showing real activity and showing nothing.
+
+**Verification:** `go test -race` with a fake server that enforces the same directory scoping; the adapter run against the real server on OX-C-01 including a deliberately busy session in a non-default project (reported `running`, active 1 of 12), after which the test session was aborted and deleted; Compose merge validated with the Home GW overlays; the Compute page tested with and without a provider.

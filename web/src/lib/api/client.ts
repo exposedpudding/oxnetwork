@@ -18,6 +18,7 @@ import type {
   AuditEvent,
   AutomationOptions,
   AutomationSummary,
+  ComputeProvider,
   WorkflowInput,
   WorkflowRecord,
   WorkflowRun,
@@ -125,6 +126,7 @@ export function createApiClient(options: ClientOptions = {}) {
     getComputeSummary: (o?: RequestOptions) => request<ComputeSummary>('GET', '/compute/summary', o),
     listWorkers: (o?: RequestOptions) => request<ListResponse<Worker>>('GET', '/compute/workers', o),
     listJobs: (o?: RequestOptions) => request<ListResponse<Job>>('GET', '/jobs', o),
+    listComputeProviders: (o?: RequestOptions) => request<ListResponse<ComputeProvider>>('GET', '/compute/providers', o),
     getNetworkGraph: (o?: RequestOptions) => request<NetworkGraph>('GET', '/network/graph', o),
     listConnections: (o?: RequestOptions) => request<ListResponse<GraphEdge>>('GET', '/network/connections', o),
 

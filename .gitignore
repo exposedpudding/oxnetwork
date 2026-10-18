@@ -10,3 +10,4 @@
 /deploy/home-gw/secrets/
 /deploy/home-gw/certs/
 /deploy/home-gw/service-probes.yml
+/deploy/home-gw/opencode-servers.yml

@@ -31,6 +31,14 @@
 
 Codex should assign one Claude work package at a time and integrate only after tests and architecture review. Do not let two agents edit the same files concurrently unless explicitly coordinated.
 
+## OpenCode compute providers (Milestone 8)
+
+**Status (19 October 2026): implemented by Claude Code on branch `claude/opencode-adapter`, stacked on `claude/backup-restore` (PR #3), which is stacked on `claude/service-health` (PR #2); awaiting Codex review. Not merged, not deployed.** See ADR-017 and [docs/OPENCODE.md](docs/OPENCODE.md). What exists: `internal/integrations/opencode` (read-only client and poller), provider-neutral types in `internal/compute/provider.go`, `opencode_servers` config, `GET /api/v1/compute/providers`, real `jobs` and `active_jobs`, and the Compute page showing servers and sessions. Home GW opt-in files: `deploy/home-gw/live-opencode.compose.yml` and `opencode-servers.example.yml`.
+
+**Important finding recorded for you:** OpenCode scopes sessions and status to a *project directory*; an adapter that does not visit every project reports nothing running while agents work. The first version had exactly this bug and was fixed after testing against the real server (details in OPENCODE.md). If you replace the adapter, keep a test with a busy session in a non-default project.
+
+**For Codex when you return:** (1) review ADR-017, especially read-only scope, "idle is not a result", and in-memory-only job state; (2) to deploy, the owner must create `secrets/opencode_ox_c_01` (the OpenCode server password, `root:10001`, mode 640) and confirm a Tailscale grant lets Home GW reach `100.69.88.98:4096`; verify with `curl` from Home GW first; (3) job submit/cancel and placement are still open and need the Milestone 9 action framework; (4) a multi-node pool and primary election need more nodes (OX-C-02 is not racked yet). Merge order: #2, then #3, then the PR for this branch (each retargets automatically).
+
 ## Backup and restore (Milestone 11)
 
 **Status (19 October 2026): implemented by Claude Code on branch `claude/backup-restore`, stacked on `claude/service-health` (PR #2); awaiting Codex review. Not merged, not deployed.** See ADR-016 and [docs/BACKUP_RESTORE.md](docs/BACKUP_RESTORE.md). What exists: `internal/backup` and the `backup`, `verify` and `restore` subcommands of the server binary; session-free, integrity-checked, checksummed snapshots taken while the app runs; restore with a safety copy and a refusal of newer-schema backups; `deploy/home-gw/backup-oxnet.sh`, `restore-oxnet.sh` and an optional `oxnetwork-backup.timer`. Verified: `gofmt`, `go vet`, full Go suite with `-race`; the scripts run against a sandbox container; and a **real Home GW database backup restored and read back on OX-C-01** (results in the doc).

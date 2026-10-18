@@ -6,15 +6,21 @@
  * The UI is served by the control plane, so API calls are same-origin and authenticated by the
  * Secure/HttpOnly/SameSite session cookie (docs/SECURITY.md section 5). We therefore use
  * `credentials: 'same-origin'` and NEVER `include`. No tokens are stored or read in JS.
- * CSRF: NO scheme is implemented yet (docs/DECISIONS.md ADR-008). The spec and server are
- * read-only, so this client is GET-only and sends no CSRF material. The auth milestone must add
- * its CSRF scheme and typed mutations together; do not add mutation calls before then.
+ * CSRF: with sign-in enabled the server requires the session's CSRF token (from GET /auth/session)
+ * in an `X-CSRF-Token` header on every non-GET /api/ request (docs/DECISIONS.md ADR-013). Pass it
+ * via the `csrfToken` option; it is attached to mutations only, never to reads.
  *
  * Errors never throw: every call resolves to a `Result`. Aborts resolve to code `ABORTED`.
  */
 import type {
   Activity,
   ApiError,
+  AuditEvent,
+  AutomationOptions,
+  AutomationSummary,
+  WorkflowInput,
+  WorkflowRecord,
+  WorkflowRun,
   ComputeSummary,
   Job,
   ListResponse,
@@ -32,6 +38,8 @@ export type Result<T> = { ok: true; data: T; status: number } | { ok: false; err
 export interface ClientOptions {
   baseUrl?: string;
   fetch?: typeof fetch;
+  /** Returns the current session CSRF token, if any. Sent on non-GET requests only. */
+  csrfToken?: () => string | undefined;
 }
 
 export interface RequestOptions {
@@ -60,6 +68,10 @@ export function createApiClient(options: ClientOptions = {}) {
     }
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
+    if (method !== 'GET') {
+      const token = options.csrfToken?.();
+      if (token) headers['X-CSRF-Token'] = token;
+    }
 
     let res: Response;
     try {
@@ -93,6 +105,7 @@ export function createApiClient(options: ClientOptions = {}) {
         code: e?.code ?? `HTTP_${res.status}`,
         message: e?.message ?? res.statusText ?? 'Request failed.',
         request_id: e?.request_id,
+        ...(e?.details ? { details: e.details } : {}),
         status: res.status,
       });
     }
@@ -114,6 +127,24 @@ export function createApiClient(options: ClientOptions = {}) {
     listJobs: (o?: RequestOptions) => request<ListResponse<Job>>('GET', '/jobs', o),
     getNetworkGraph: (o?: RequestOptions) => request<NetworkGraph>('GET', '/network/graph', o),
     listConnections: (o?: RequestOptions) => request<ListResponse<GraphEdge>>('GET', '/network/connections', o),
+
+    // Automations
+    getAutomationSummary: (o?: RequestOptions) => request<AutomationSummary>('GET', '/automations/summary', o),
+    getWorkflowOptions: (o?: RequestOptions) => request<AutomationOptions>('GET', '/workflows/options', o),
+    listWorkflows: (o?: RequestOptions) => request<ListResponse<WorkflowRecord>>('GET', '/workflows', o),
+    getWorkflow: (workflowId: string, o?: RequestOptions) => request<WorkflowRecord>('GET', `/workflows/${id(workflowId)}`, o),
+    createWorkflow: (input: WorkflowInput, o?: RequestOptions) => request<WorkflowRecord>('POST', '/workflows', { ...o, body: input }),
+    updateWorkflow: (workflowId: string, input: Partial<WorkflowInput>, o?: RequestOptions) =>
+      request<WorkflowRecord>('PATCH', `/workflows/${id(workflowId)}`, { ...o, body: input }),
+    enableWorkflow: (workflowId: string, o?: RequestOptions) => request<WorkflowRecord>('POST', `/workflows/${id(workflowId)}/enable`, o),
+    disableWorkflow: (workflowId: string, o?: RequestOptions) => request<WorkflowRecord>('POST', `/workflows/${id(workflowId)}/disable`, o),
+    runWorkflow: (workflowId: string, o?: RequestOptions) => request<WorkflowRun>('POST', `/workflows/${id(workflowId)}/run`, o),
+    listWorkflowRuns: (workflowId: string, limit?: number, o?: RequestOptions) =>
+      request<ListResponse<WorkflowRun>>('GET', `/workflows/${id(workflowId)}/runs`, { ...o, query: { limit } }),
+    listRecentRuns: (limit?: number, o?: RequestOptions) => request<ListResponse<WorkflowRun>>('GET', '/workflow-runs', { ...o, query: { limit } }),
+    getWorkflowRun: (runId: string, o?: RequestOptions) => request<WorkflowRun>('GET', `/workflow-runs/${id(runId)}`, o),
+    listAudit: (query: { limit?: number; cursor?: string; target_type?: string; target_id?: string } = {}, o?: RequestOptions) =>
+      request<ListResponse<AuditEvent>>('GET', '/audit', { ...o, query }),
   };
 }
 

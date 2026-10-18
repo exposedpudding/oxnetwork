@@ -76,6 +76,58 @@ describe('implemented read endpoints', () => {
   });
 });
 
+describe('automation endpoints and CSRF', () => {
+  const ok = () => vi.fn().mockImplementation(async () => json({ items: [] }));
+
+  it('sends the CSRF token on mutations only', async () => {
+    const f = ok();
+    const c = createApiClient({ fetch: f, csrfToken: () => 'tok-1' });
+    await c.listWorkflows();
+    await c.runWorkflow('wf 1');
+    await c.updateWorkflow('wf_1', { name: 'x' });
+    expect(f.mock.calls.map((x) => [x[1].method, x[0]])).toEqual([
+      ['GET', '/api/v1/workflows'],
+      ['POST', '/api/v1/workflows/wf%201/run'],
+      ['PATCH', '/api/v1/workflows/wf_1'],
+    ]);
+    expect(Object.keys(f.mock.calls[0][1].headers)).toEqual(['Accept']);
+    expect(f.mock.calls[1][1].headers['X-CSRF-Token']).toBe('tok-1');
+    expect(f.mock.calls[1][1].body).toBeUndefined();
+    expect(f.mock.calls[2][1].headers).toMatchObject({ 'X-CSRF-Token': 'tok-1', 'Content-Type': 'application/json' });
+    expect(JSON.parse(f.mock.calls[2][1].body)).toEqual({ name: 'x' });
+  });
+
+  it('omits the header when there is no token and hits every automation path', async () => {
+    const f = ok();
+    const c = createApiClient({ fetch: f });
+    await c.createWorkflow({ name: 'n', enabled: true, trigger: { type: 'manual' }, steps: [], on_success: {}, on_failure: { behavior: 'stop' } });
+    await c.enableWorkflow('a');
+    await c.disableWorkflow('a');
+    await c.getWorkflow('a');
+    await c.listWorkflowRuns('a', 5);
+    await c.listRecentRuns(3);
+    await c.getWorkflowRun('r1');
+    await c.getAutomationSummary();
+    await c.getWorkflowOptions();
+    await c.listAudit({ limit: 10, target_id: 'a' });
+    expect(f.mock.calls[0][1].headers['X-CSRF-Token']).toBeUndefined();
+    expect(f.mock.calls.slice(1).map((x) => x[0])).toEqual([
+      '/api/v1/workflows/a/enable', '/api/v1/workflows/a/disable', '/api/v1/workflows/a',
+      '/api/v1/workflows/a/runs?limit=5', '/api/v1/workflow-runs?limit=3', '/api/v1/workflow-runs/r1',
+      '/api/v1/automations/summary', '/api/v1/workflows/options', '/api/v1/audit?limit=10&target_id=a',
+    ]);
+  });
+
+  it('exposes per-field validation details', async () => {
+    const f = vi.fn().mockResolvedValue(
+      json({ error: { code: 'INVALID_WORKFLOW', message: 'bad', request_id: 'r9', details: { name: 'Name is required.' } } }, 400),
+    );
+    const r = await createApiClient({ fetch: f }).createWorkflow({ name: '', enabled: true, trigger: { type: 'manual' }, steps: [], on_success: {}, on_failure: { behavior: 'stop' } });
+    expect(r.ok === false && r.error.details).toEqual({ name: 'Name is required.' });
+    expect(r.ok === false && r.error.status).toBe(400);
+  });
+});
+
 describe('freshness', () => {
   const h = { state: 'healthy' as const, observed_at: '2026-01-01T00:00:00Z', stale_after_seconds: 60 };
   it('classifies live, stale and unavailable', () => {

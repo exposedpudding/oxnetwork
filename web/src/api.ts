@@ -1,7 +1,10 @@
 import type { Activity, List, Node, Service, System } from './types'
 import { createApiClient, type Result } from './lib/api/client'
+import type { AutomationActions, AutomationsData } from './features/automations/AutomationsView'
 
-const client = createApiClient()
+// The session CSRF token is attached to every mutation. It is set once the session loads.
+let csrfToken: string | undefined
+const client = createApiClient({ csrfToken: () => csrfToken })
 
 function unwrap<T>(result: Result<T>): T {
   if (!result.ok) throw new Error(result.error.message)
@@ -43,7 +46,27 @@ export async function loadNetwork() {
 
 export type AuthSession = { identity: { subject: string; email?: string }; csrf_token: string }
 
-export function loadAuthSession() { return get<AuthSession>('/auth/session') }
+export function loadAuthSession() {
+  return get<AuthSession>('/auth/session').then(session => { csrfToken = session.csrf_token; return session })
+}
+
+export async function loadAutomations(): Promise<AutomationsData> {
+  const [summary, workflows, options, runs] = await Promise.all([
+    client.getAutomationSummary(), client.listWorkflows(), client.getWorkflowOptions(), client.listRecentRuns(8)
+  ])
+  return { summary: unwrap(summary), workflows: unwrap(workflows).items, options: unwrap(options), recentRuns: unwrap(runs).items }
+}
+
+/** Server calls used by the Automations page. */
+export const automationActions: AutomationActions = {
+  run: id => client.runWorkflow(id),
+  setEnabled: (id, enabled) => enabled ? client.enableWorkflow(id) : client.disableWorkflow(id),
+  create: input => client.createWorkflow(input),
+  update: (id, input) => client.updateWorkflow(id, input),
+  listRuns: id => client.listWorkflowRuns(id, 25),
+  getRun: id => client.getWorkflowRun(id),
+  listAudit: id => client.listAudit({ target_type: 'workflow', target_id: id, limit: 10 })
+}
 
 export async function logout(csrfToken: string) {
   const response = await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRF-Token': csrfToken } })

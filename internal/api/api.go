@@ -22,6 +22,7 @@ import (
 	"github.com/exposedpudding/oxnetwork/internal/domain"
 	"github.com/exposedpudding/oxnetwork/internal/inventory"
 	"github.com/exposedpudding/oxnetwork/internal/network"
+	"github.com/exposedpudding/oxnetwork/internal/workflow"
 )
 
 type Server struct {
@@ -34,6 +35,12 @@ type Server struct {
 	HostAgentTokensDir string
 	Log                *slog.Logger
 	Now                func() time.Time
+	// Runner enables the automations endpoints when set. MutationsAllowed is
+	// true only when requests are authenticated or the server is bound to
+	// loopback; see docs/DECISIONS.md ADR-013.
+	Runner           *workflow.Runner
+	Hub              *workflow.Hub
+	MutationsAllowed bool
 }
 
 func (s *Server) sourceMode() string {
@@ -64,7 +71,11 @@ func (s *Server) Handler() http.Handler {
 		if mode == "tailscale" {
 			feature = "tailscale"
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"name": "oxnet.work", "site_name": s.SiteName, "version": "0.1.0-dev", "server_time": s.now(), "features": []string{feature}, "demo_mode": mode == "demo", "inventory_source": mode, "auth_required": s.AuthEnabled})
+		features := []string{feature}
+		if s.Runner != nil {
+			features = append(features, "automations")
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"name": "oxnet.work", "site_name": s.SiteName, "version": "0.1.0-dev", "server_time": s.now(), "features": features, "demo_mode": mode == "demo", "inventory_source": mode, "auth_required": s.AuthEnabled, "mutations_enabled": s.Runner != nil && s.MutationsAllowed})
 	})
 	mux.HandleFunc("GET /api/v1/nodes", func(w http.ResponseWriter, r *http.Request) {
 		snapshot, ok := s.snapshot(w, r)
@@ -175,6 +186,7 @@ func (s *Server) Handler() http.Handler {
 		writeJSON(w, http.StatusOK, map[string]any{"items": network.FromSnapshot(snapshot).Edges})
 	})
 	mux.HandleFunc("GET /api/v1/events", s.events)
+	s.registerWorkflowRoutes(mux)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusNotFound, "NOT_FOUND", "Endpoint not found")
 	})
@@ -335,10 +347,20 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 	flusher.Flush()
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
+	var runs <-chan workflow.Event
+	if s.Hub != nil {
+		var unsubscribe func()
+		runs, unsubscribe = s.Hub.Subscribe()
+		defer unsubscribe()
+	}
 	for {
 		select {
 		case <-r.Context().Done():
 			return
+		case event := <-runs:
+			payload, _ := json.Marshal(map[string]any{"refetch": true, "workflow_id": event.WorkflowID, "run_id": event.RunID, "state": event.State})
+			_, _ = fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event.Type, payload)
+			flusher.Flush()
 		case <-ticker.C:
 			_, _ = fmt.Fprintf(w, "event: node.updated\ndata: {\"refetch\":true,\"at\":%q}\n\n", s.now().Format(time.RFC3339))
 			flusher.Flush()

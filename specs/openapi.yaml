@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: oxnet.work API
   version: 0.1.0
-  description: Current read-only API. Inventory uses either simulated demo records or opt-in Tailscale device discovery. Other planned endpoints are documented separately in docs/API_SPEC.md.
+  description: Current API. Inventory uses either simulated demo records or opt-in Tailscale device discovery and is read-only. Automations (workflows, runs, audit) can be changed when /system reports mutations_enabled; every mutation requires a JSON content type, a same-origin Origin when one is sent, and, with sign-in enabled, the X-CSRF-Token session header. Other planned endpoints are documented separately in docs/API_SPEC.md.
 servers:
   - url: /api/v1
 paths:
@@ -172,14 +172,416 @@ paths:
                   items:
                     type: array
                     items: { $ref: '#/components/schemas/GraphEdge' }
+  /automations/summary:
+    get:
+      operationId: getAutomationSummary
+      responses:
+        '200':
+          description: Counts for the Automations page
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AutomationSummary' }
+        '503': { $ref: '#/components/responses/Error' }
+  /workflows/options:
+    get:
+      operationId: getWorkflowOptions
+      description: What the runner can execute now (actions, targets, notification channels) plus actions planned for later milestones.
+      responses:
+        '200':
+          description: Editor options
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AutomationOptions' }
+        '503': { $ref: '#/components/responses/Error' }
+  /workflows:
+    get:
+      operationId: listWorkflows
+      responses:
+        '200':
+          description: Workflows with their last run and next scheduled run
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Workflow' }
+        '503': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createWorkflow
+      description: Create a workflow. Omitted `enabled` defaults to true. Workflows that reference an action the server cannot execute are rejected with ACTION_NOT_SUPPORTED.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WorkflowInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Workflow' }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '415': { $ref: '#/components/responses/Error' }
+  /workflows/{workflowId}:
+    parameters:
+      - $ref: '#/components/parameters/WorkflowId'
+    get:
+      operationId: getWorkflow
+      responses:
+        '200':
+          description: Workflow
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Workflow' }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      operationId: updateWorkflow
+      description: Merges the request onto the stored definition. Omitted fields keep their stored values; a supplied `steps` array replaces all steps.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WorkflowInput' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Workflow' }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /workflows/{workflowId}/run:
+    parameters:
+      - $ref: '#/components/parameters/WorkflowId'
+    post:
+      operationId: runWorkflow
+      description: Starts a manual run in the background and returns the queued run. One run per workflow at a time.
+      responses:
+        '202':
+          description: Run accepted
+          headers:
+            Location: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkflowRun' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409':
+          description: WORKFLOW_DISABLED or RUN_IN_PROGRESS
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /workflows/{workflowId}/enable:
+    parameters:
+      - $ref: '#/components/parameters/WorkflowId'
+    post:
+      operationId: enableWorkflow
+      responses:
+        '200':
+          description: Enabled
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Workflow' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /workflows/{workflowId}/disable:
+    parameters:
+      - $ref: '#/components/parameters/WorkflowId'
+    post:
+      operationId: disableWorkflow
+      responses:
+        '200':
+          description: Disabled
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Workflow' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /workflows/{workflowId}/runs:
+    parameters:
+      - $ref: '#/components/parameters/WorkflowId'
+    get:
+      operationId: listWorkflowRuns
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 25 } }
+      responses:
+        '200':
+          description: Runs for one workflow, newest first, without step detail
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/WorkflowRun' }
+        '404': { $ref: '#/components/responses/Error' }
+  /workflow-runs:
+    get:
+      operationId: listRecentRuns
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 10 } }
+      responses:
+        '200':
+          description: Recent runs across all workflows, newest first, without step detail
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/WorkflowRun' }
+  /workflow-runs/{runId}:
+    get:
+      operationId: getWorkflowRun
+      parameters:
+        - { name: runId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Run including step results
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkflowRun' }
+        '404': { $ref: '#/components/responses/Error' }
+  /audit:
+    get:
+      operationId: listAudit
+      description: Append-only audit trail, newest first. `next_cursor` is the id to pass as `cursor` for the next older page.
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+        - { name: cursor, in: query, schema: { type: string } }
+        - { name: target_type, in: query, schema: { type: string } }
+        - { name: target_id, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Audit events
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/AuditEvent' }
+                  next_cursor: { type: [string, 'null'] }
+        '400': { $ref: '#/components/responses/Error' }
 components:
+  responses:
+    Error:
+      description: Error. Validation failures include per-field `details`.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
   parameters:
     NodeId:
       name: nodeId
       in: path
       required: true
       schema: { type: string }
+    WorkflowId:
+      name: workflowId
+      in: path
+      required: true
+      schema: { type: string }
   schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string, description: 'e.g. INVALID_WORKFLOW, ACTION_NOT_SUPPORTED, MUTATIONS_DISABLED, CROSS_ORIGIN, CSRF_INVALID, WORKFLOW_DISABLED, RUN_IN_PROGRESS, NOT_FOUND' }
+            message: { type: string }
+            request_id: { type: string }
+            details:
+              type: object
+              description: Field messages keyed like the editor ("name", "trigger", "steps", "step.0.action").
+              additionalProperties: { type: string }
+    Trigger:
+      oneOf:
+        - type: object
+          required: [type]
+          properties: { type: { const: manual } }
+        - type: object
+          required: [type, expression]
+          properties:
+            type: { const: cron }
+            expression: { type: string, description: 'Standard 5-field cron in UTC' }
+        - type: object
+          required: [type, target_id, condition, for_seconds]
+          properties:
+            type: { const: health_condition }
+            target_id: { type: string }
+            condition: { type: string, enum: [unhealthy, degraded, stale] }
+            for_seconds: { type: integer, minimum: 0, maximum: 86400 }
+    Step:
+      oneOf:
+        - type: object
+          required: [id, type, name, action_type, target_id]
+          properties:
+            id: { type: string, pattern: '^[A-Za-z0-9_-]{1,64}$' }
+            type: { const: action }
+            name: { type: string, maxLength: 80 }
+            action_type: { type: string, description: 'See GET /workflows/options' }
+            target_id: { type: string }
+        - type: object
+          required: [id, type, name, channel, message]
+          properties:
+            id: { type: string, pattern: '^[A-Za-z0-9_-]{1,64}$' }
+            type: { const: notify }
+            name: { type: string, maxLength: 80 }
+            channel: { type: string }
+            message: { type: string, maxLength: 500 }
+    WorkflowInput:
+      type: object
+      required: [name, trigger, steps]
+      additionalProperties: false
+      properties:
+        id: { type: string, description: Ignored on create and update }
+        name: { type: string, maxLength: 80 }
+        description: { type: string, maxLength: 240 }
+        enabled: { type: boolean }
+        trigger: { $ref: '#/components/schemas/Trigger' }
+        steps:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items: { $ref: '#/components/schemas/Step' }
+        on_success:
+          type: object
+          properties: { notify_channel: { type: string } }
+        on_failure:
+          type: object
+          properties:
+            behavior: { type: string, enum: [stop, continue], default: stop }
+            notify_channel: { type: string }
+    RunSummary:
+      type: object
+      required: [id, state, trigger, started_at, finished_at, duration_ms]
+      properties:
+        id: { type: string }
+        state: { $ref: '#/components/schemas/RunState' }
+        trigger: { type: string, enum: [manual, cron, health_condition] }
+        started_at: { type: string, format: date-time }
+        finished_at: { type: [string, 'null'], format: date-time }
+        duration_ms: { type: [integer, 'null'] }
+    Workflow:
+      allOf:
+        - $ref: '#/components/schemas/WorkflowInput'
+        - type: object
+          required: [id, enabled, simulated, created_at, updated_at, last_run, next_run_at]
+          properties:
+            id: { type: string }
+            enabled: { type: boolean }
+            simulated: { type: boolean, description: True for seeded demo workflows }
+            created_at: { type: string, format: date-time }
+            updated_at: { type: string, format: date-time }
+            last_run: { oneOf: [{ $ref: '#/components/schemas/RunSummary' }, { type: 'null' }] }
+            next_run_at: { type: [string, 'null'], format: date-time, description: Next cron firing for enabled cron workflows }
+    RunState:
+      type: string
+      enum: [queued, running, succeeded, failed, cancelled]
+    RunStep:
+      type: object
+      required: [position, step_id, kind, name, state, started_at, finished_at, output]
+      properties:
+        position: { type: integer }
+        step_id: { type: string, description: '"outcome" for the success or failure notification appended after the ordered steps' }
+        kind: { type: string, enum: [action, notify] }
+        name: { type: string }
+        state: { type: string, enum: [pending, running, succeeded, failed, skipped] }
+        started_at: { type: [string, 'null'], format: date-time }
+        finished_at: { type: [string, 'null'], format: date-time }
+        output: { type: string }
+        error_code: { type: string }
+    WorkflowRun:
+      type: object
+      required: [id, workflow_id, workflow_name, trigger, actor, state, started_at, finished_at, duration_ms, summary, simulated]
+      properties:
+        id: { type: string }
+        workflow_id: { type: string }
+        workflow_name: { type: string }
+        trigger: { type: string }
+        actor: { type: string }
+        state: { $ref: '#/components/schemas/RunState' }
+        started_at: { type: string, format: date-time }
+        finished_at: { type: [string, 'null'], format: date-time }
+        duration_ms: { type: [integer, 'null'] }
+        error_code: { type: string }
+        summary: { type: string }
+        simulated: { type: boolean }
+        steps:
+          type: array
+          description: Present on GET /workflow-runs/{runId} and the run response; omitted from lists
+          items: { $ref: '#/components/schemas/RunStep' }
+    AutomationSummary:
+      type: object
+      required: [workflows, enabled, disabled, scheduled_count, next_scheduled_at, runs_last_7_days, succeeded_last_7_days, success_rate, failed_last_24h, active_runs, generated_at, simulated]
+      properties:
+        workflows: { type: integer }
+        enabled: { type: integer }
+        disabled: { type: integer }
+        scheduled_count: { type: integer }
+        next_scheduled_at: { type: [string, 'null'], format: date-time }
+        runs_last_7_days: { type: integer }
+        succeeded_last_7_days: { type: integer }
+        success_rate: { type: [number, 'null'], description: 'Percentage; null when no run finished in the last 7 days' }
+        failed_last_24h: { type: integer }
+        active_runs: { type: integer }
+        generated_at: { type: string, format: date-time }
+        simulated: { type: boolean }
+    AutomationOptions:
+      type: object
+      required: [action_types, targets, channels, planned_actions]
+      properties:
+        action_types:
+          type: array
+          items:
+            type: object
+            required: [value, label]
+            properties: { value: { type: string }, label: { type: string }, dangerous: { type: boolean } }
+        targets:
+          type: array
+          items:
+            type: object
+            required: [id, label]
+            properties: { id: { type: string }, label: { type: string } }
+        channels:
+          type: array
+          items:
+            type: object
+            required: [value, label]
+            properties: { value: { type: string }, label: { type: string } }
+        planned_actions:
+          type: array
+          items:
+            type: object
+            required: [value, label, milestone]
+            properties: { value: { type: string }, label: { type: string }, milestone: { type: string } }
+    AuditEvent:
+      type: object
+      required: [id, occurred_at, actor, action, target_type, target_id, outcome, detail]
+      properties:
+        id: { type: integer }
+        occurred_at: { type: string, format: date-time }
+        actor: { type: string }
+        action: { type: string, description: 'e.g. workflow.created, workflow.run.started, workflow.run.finished, workflow.notification, workflow.run.skipped' }
+        target_type: { type: string }
+        target_id: { type: string }
+        outcome: { type: string, enum: [succeeded, failed, skipped] }
+        detail: { type: object, additionalProperties: true, description: Sanitised parameters; never secrets }
     SystemInfo:
       type: object
       required: [name, site_name, version, server_time, features, demo_mode, inventory_source, auth_required]
@@ -191,6 +593,7 @@ components:
         demo_mode: { type: boolean }
         inventory_source: { type: string, enum: [demo, tailscale] }
         auth_required: { type: boolean }
+        mutations_enabled: { type: boolean, description: True when this server accepts workflow changes (signed in, or bound to loopback) }
         features:
           type: array
           items: { type: string }

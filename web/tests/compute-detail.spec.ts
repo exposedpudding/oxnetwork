@@ -25,5 +25,5 @@ test('node detail shows missing metrics and only reported capabilities', async (
   await expect(page.getByText('Not reported').first()).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Capabilities' })).toBeVisible()
   await expect(page.getByText('monitor', { exact: true })).toBeVisible()
-  await expect(page.getByText('No node actions are available in demo mode.')).toBeVisible()
+  await expect(page.getByText(/Node actions are unavailable\./)).toBeVisible()
 })

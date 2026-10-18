@@ -58,15 +58,16 @@ Acceptance: topology is generated from graph data and remains usable without ani
 
 ## Milestone 4 - Automations and audit
 
-- [ ] Workflow schema/migrations.
-- [ ] Manual and cron triggers.
-- [ ] Ordered action steps.
-- [ ] Workflow runner.
-- [ ] Run history.
-- [ ] Append-only audit events.
-- [ ] Automations screen.
+- [x] Workflow schema/migrations (migration 007; renames the unused 001 audit placeholder).
+- [x] Manual and cron triggers; health-condition triggers (edge-triggered) also implemented.
+- [x] Ordered action steps; only read-only checks execute until Milestone 9 (ADR-013).
+- [x] Workflow runner (per-step and per-run timeouts, one run per workflow, interrupted-run recovery).
+- [x] Run history with step results.
+- [x] Append-only audit events (enforced by SQLite triggers).
+- [x] Automations screen, including create/edit, enable/disable and confirmed manual runs.
+- [ ] Not yet: run cancellation, retries, external notification channels (need secret storage) and role and scope checks (Milestone 10).
 
-Acceptance: a demo workflow can run end-to-end and produce auditable step results.
+Acceptance: a demo workflow can run end-to-end and produce auditable step results. Met: the simulated demo workflows run against demo inventory and record step outcomes and audit events.
 
 ## Milestone 5 - Agent foundation
 

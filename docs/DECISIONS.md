@@ -97,3 +97,23 @@ Record material decisions here. Do not rewrite history; append superseding decis
 **Decision:** Use an outbound-only Go collector on Linux or Windows for CPU, physical RAM, system/root disk and capacity. Each Tailscale inventory node has its own telemetry-submit token; the server fixes report identity from the URL and a matching root-owned token file, then timestamps the receipt. Host reports are stored separately from Tailscale inventory so a device refresh cannot erase them. After 90 seconds without a report, the node becomes stale. Keep service health, jobs, containers, and network links unavailable until their own adapters report them.
 
 **Reason:** Tailscale device discovery cannot measure host resources. A small local agent avoids broad Docker socket access and inbound ports, while per-node tokens limit the damage of one compromised collector. `healthy` labels recent reporting only, so the UI states that service health remains unverified.
+
+## ADR-013 - Automations: workflows, runner and audit (Milestone 4)
+
+**Status:** Accepted by owner for implementation on 18 October 2026 (Codex paused; work done by Claude Code at the owner's direction)
+
+**Decision:**
+
+- **Definition shape.** A workflow is `{id, name, description, enabled, trigger, steps[], on_success{notify_channel}, on_failure{behavior, notify_channel}}`, exactly the shape of the provisional frontend types. It is stored as JSON in one SQLite row; ordered steps only, no graph.
+- **Triggers.** `manual`, `cron` (standard 5-field expression, evaluated in UTC once per minute, no catch-up of missed minutes after a restart), and `health_condition` (node is `unhealthy`, `degraded` or `stale` continuously for `for_seconds`; edge-triggered, so it fires once and re-arms only after the condition clears).
+- **Steps.** `action` (typed, enumerated, executed by the in-process runner) and `notify`. There is no shell, script or HTTP step type (ADR-005).
+- **Actions in v1.** Only read-only inventory checks execute: `check_node_health` and `check_node_freshness`. Mutating actions (Wake-on-LAN, drain, service restart, backup) are not offered and workflows referencing them are rejected with `ACTION_NOT_SUPPORTED` until Milestone 9 delivers capability checks, confirmation UX and idempotency.
+- **Notifications.** The only channel is `activity` (recorded on the run and in the audit log). External channels need secret storage, which remains a separate decision.
+- **Run states.** `queued -> running -> succeeded | failed | cancelled`. Step states: `pending | running | succeeded | failed | skipped`. `cancelled` is reserved; there is no cancel endpoint yet. Runs left `queued` or `running` by a restart are marked `failed` with code `INTERRUPTED`.
+- **Failure handling.** `stop` marks remaining steps `skipped` and the run `failed`. `continue` runs the remaining steps and the run still ends `failed` if any step failed. No automatic retries. Each step has a 30 second timeout and each run a 5 minute timeout.
+- **Concurrency.** One active run per workflow. A second start returns `409 RUN_IN_PROGRESS`; scheduled triggers that collide are skipped and audited.
+- **Audit.** `audit_events` is append-only, enforced by SQLite triggers that abort `UPDATE` and `DELETE`. Workflow create, update, enable, disable, run start and run finish each append an event with actor, target, outcome and sanitised detail.
+- **Mutation gate.** Mutating endpoints require either an authenticated session or a loopback-bound server (`mutations_enabled` in `/api/v1/system`). They additionally require a JSON content type and a same-origin `Origin` header when one is sent. With OIDC enabled the auth middleware now enforces `X-CSRF-Token` on every non-safe `/api/` request. This resolves the CSRF gap noted in ADR-008 for these endpoints; role and scope checks remain Milestone 10.
+- **Demo data.** In demo mode three clearly simulated workflows are seeded when the table is empty, and they are removed when the server switches to a live inventory source.
+
+**Reason:** Milestone 4 needs a demo workflow that runs end to end with auditable step results while staying inside the project's security gates. Limiting executable actions to read-only checks delivers that without pre-empting the authorisation, confirmation and idempotency work in Milestones 9 and 10.

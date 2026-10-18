@@ -20,6 +20,7 @@ import (
 	"github.com/exposedpudding/oxnetwork/internal/integrations/demo"
 	"github.com/exposedpudding/oxnetwork/internal/integrations/tailscale"
 	"github.com/exposedpudding/oxnetwork/internal/inventory"
+	"github.com/exposedpudding/oxnetwork/internal/workflow"
 )
 
 func main() {
@@ -41,7 +42,8 @@ func main() {
 	}
 	host, _, _ := net.SplitHostPort(cfg.Server.Listen)
 	ip := net.ParseIP(host)
-	if (ip == nil || !ip.IsLoopback()) && host != "localhost" && !cfg.OIDCEnabled() && os.Getenv("OXNET_ALLOW_UNAUTHENTICATED_BIND") != "true" {
+	isLoopback := (ip != nil && ip.IsLoopback()) || host == "localhost"
+	if !isLoopback && !cfg.OIDCEnabled() && os.Getenv("OXNET_ALLOW_UNAUTHENTICATED_BIND") != "true" {
 		log.Error("non-loopback bind requires OXNET_ALLOW_UNAUTHENTICATED_BIND=true; this demo has no authentication")
 		os.Exit(1)
 	}
@@ -114,7 +116,27 @@ func main() {
 		log.Warn("initial inventory refresh failed; retry scheduled", "source", mode, "error", err)
 	}
 	initialCancel()
-	app := &api.Server{DB: database, Repo: repo, WebDir: cfg.Server.WebDir, SiteName: cfg.UI.SiteName, AuthEnabled: cfg.OIDCEnabled(), SourceMode: mode, Log: log}
+	hub := &workflow.Hub{}
+	store := workflow.Store{DB: database}
+	runner := &workflow.Runner{Store: store, Inventory: repo, Hub: hub, Log: log}
+	if interrupted, err := store.RecoverInterrupted(context.Background()); err != nil {
+		log.Error("workflow recovery failed", "error", err)
+		os.Exit(1)
+	} else if interrupted > 0 {
+		log.Warn("marked interrupted workflow runs as failed", "count", interrupted)
+	}
+	if mode == "demo" {
+		if err := workflow.SeedDemo(context.Background(), store); err != nil {
+			log.Error("demo workflow seed failed", "error", err)
+			os.Exit(1)
+		}
+	} else if removed, err := store.RemoveSimulated(context.Background()); err != nil {
+		log.Error("demo workflow cleanup failed", "error", err)
+		os.Exit(1)
+	} else if removed > 0 {
+		log.Info("removed simulated demo workflows", "count", removed)
+	}
+	app := &api.Server{DB: database, Repo: repo, WebDir: cfg.Server.WebDir, SiteName: cfg.UI.SiteName, AuthEnabled: cfg.OIDCEnabled(), SourceMode: mode, Log: log, Runner: runner, Hub: hub, MutationsAllowed: cfg.OIDCEnabled() || isLoopback}
 	app.HostAgentTokensDir = cfg.HostAgent.TokenDir
 	var handler http.Handler = app.Handler()
 	if cfg.OIDCEnabled() {
@@ -142,8 +164,12 @@ func main() {
 			}
 		}
 	}()
+	runner.BaseContext = ctx
+	scheduler := &workflow.Scheduler{Runner: runner, Inventory: repo, Log: log}
+	go scheduler.Run(ctx)
 	go func() {
 		<-ctx.Done()
+		runner.Wait()
 		shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		_ = server.Shutdown(shutdown)

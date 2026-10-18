@@ -160,6 +160,15 @@ func (s *Service) Handler(next http.Handler) http.Handler {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
+		// Every state-changing API request must carry the session's CSRF token.
+		if strings.HasPrefix(r.URL.Path, "/api/") && r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions {
+			if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-CSRF-Token")), []byte(current.CSRFToken)) != 1 {
+				w.Header().Set("Content-Type", "application/json; charset=utf-8")
+				w.WriteHeader(http.StatusForbidden)
+				_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]string{"code": "CSRF_INVALID", "message": "A valid CSRF token is required"}})
+				return
+			}
+		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), contextKey{}, current.Identity)))
 	})
 }

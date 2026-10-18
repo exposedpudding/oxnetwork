@@ -135,6 +135,19 @@ func TestOIDCLoginSessionLogoutAndReplay(t *testing.T) {
 	if sessionBody.Identity.Subject != "owner" || sessionBody.CSRFToken == "" {
 		t.Fatalf("bad session: %+v", sessionBody)
 	}
+	// State-changing API requests need the session CSRF token; reads do not.
+	if got := request("/api/v1/workflows", "POST", []*http.Cookie{sessionCookie}, "").Code; got != http.StatusForbidden {
+		t.Fatalf("API mutation without CSRF: %d", got)
+	}
+	if got := request("/api/v1/workflows", "POST", []*http.Cookie{sessionCookie}, "wrong-token").Code; got != http.StatusForbidden {
+		t.Fatalf("API mutation with wrong CSRF: %d", got)
+	}
+	if got := request("/api/v1/workflows", "POST", []*http.Cookie{sessionCookie}, sessionBody.CSRFToken).Code; got != http.StatusOK {
+		t.Fatalf("API mutation with CSRF: %d", got)
+	}
+	if got := request("/api/v1/workflows", "GET", []*http.Cookie{sessionCookie}, "").Code; got != http.StatusOK {
+		t.Fatalf("API read without CSRF: %d", got)
+	}
 	if got := request("/auth/logout", "POST", []*http.Cookie{sessionCookie}, "").Code; got != http.StatusForbidden {
 		t.Fatalf("logout without CSRF: %d", got)
 	}

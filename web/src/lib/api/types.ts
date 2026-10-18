@@ -3,6 +3,8 @@
 // Types marked "provisional" are NOT in the spec/server yet (docs/API_SPEC.md planned work) and
 // must be replaced when the spec gains schemas for them.
 
+import type { Workflow } from '../../features/workflows/types';
+
 export type HealthState = 'healthy' | 'degraded' | 'unhealthy' | 'unknown' | 'disabled';
 
 export interface Health {
@@ -22,6 +24,8 @@ export interface SystemInfo {
   demo_mode: boolean;
   inventory_source?: 'demo' | 'tailscale';
   auth_required: boolean;
+  /** True when this session may change workflows (signed in, or a loopback-bound server). */
+  mutations_enabled?: boolean;
 }
 
 /** Server-computed freshness. Prefer this over deriving it client-side when present. */
@@ -168,8 +172,99 @@ export interface ApiError {
   code: string;
   message: string;
   request_id?: string;
+  /** Per-field validation messages (workflow definitions), keyed like the editor's errors. */
+  details?: Record<string, string>;
   /** HTTP status, or 0 when no response was received. */
   status: number;
+}
+
+// ---- Automations (docs/DECISIONS.md ADR-013) ----
+
+export type RunState = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+export type RunStepState = 'pending' | 'running' | 'succeeded' | 'failed' | 'skipped';
+
+export interface RunSummary {
+  id: string;
+  state: RunState;
+  trigger: string;
+  started_at: string;
+  finished_at: string | null;
+  duration_ms: number | null;
+}
+
+/** A stored workflow: the editable definition plus server-managed fields. */
+export interface WorkflowRecord extends Workflow {
+  simulated: boolean;
+  created_at: string;
+  updated_at: string;
+  last_run: RunSummary | null;
+  next_run_at: string | null;
+}
+
+/** The writable part of a workflow, as accepted by POST and PATCH. */
+export type WorkflowInput = Omit<Workflow, 'id'>;
+
+export interface RunStep {
+  position: number;
+  step_id: string;
+  kind: 'action' | 'notify';
+  name: string;
+  state: RunStepState;
+  started_at: string | null;
+  finished_at: string | null;
+  output: string;
+  error_code?: string;
+}
+
+export interface WorkflowRun {
+  id: string;
+  workflow_id: string;
+  workflow_name: string;
+  trigger: string;
+  actor: string;
+  state: RunState;
+  started_at: string;
+  finished_at: string | null;
+  duration_ms: number | null;
+  error_code?: string;
+  summary: string;
+  simulated: boolean;
+  /** Present on GET /workflow-runs/{id} and the POST .../run response; omitted in lists. */
+  steps?: RunStep[];
+}
+
+export interface AutomationSummary {
+  workflows: number;
+  enabled: number;
+  disabled: number;
+  scheduled_count: number;
+  next_scheduled_at: string | null;
+  runs_last_7_days: number;
+  succeeded_last_7_days: number;
+  /** Percentage 0-100, or null when no runs have finished in the last 7 days. */
+  success_rate: number | null;
+  failed_last_24h: number;
+  active_runs: number;
+  generated_at: string;
+  simulated: boolean;
+}
+
+export interface AutomationOptions {
+  action_types: { value: string; label: string; dangerous?: boolean }[];
+  targets: { id: string; label: string }[];
+  channels: { value: string; label: string }[];
+  planned_actions: { value: string; label: string; milestone: string }[];
+}
+
+export interface AuditEvent {
+  id: number;
+  occurred_at: string;
+  actor: string;
+  action: string;
+  target_type: string;
+  target_id: string;
+  outcome: string;
+  detail: Record<string, unknown>;
 }
 
 export interface ListResponse<T> {

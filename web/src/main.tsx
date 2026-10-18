@@ -4,5 +4,6 @@ import { App } from './App'
 import './styles.css'
 import './styles/tokens.css'
 import './styles/components.css'
+import './features/automations/automations.css'
 
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App /></React.StrictMode>)

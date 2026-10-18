@@ -34,6 +34,10 @@ export async function loadCompute() {
   return { summary: unwrap(summary), workers: unwrap(workers).items, jobs: unwrap(jobs).items, providers: unwrap(providers).items }
 }
 
+export async function loadIntegrations() {
+  return unwrap(await client.listIntegrations()).items
+}
+
 export async function loadNode(id: string) {
   const [node, metrics] = await Promise.all([client.getNode(id), client.getNodeMetrics(id)])
   return { ...unwrap(node), metrics: unwrap(metrics) }

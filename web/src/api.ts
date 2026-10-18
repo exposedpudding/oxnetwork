@@ -19,7 +19,7 @@ export async function loadOverview() {
     get<System>('/api/v1/system'),
     get<List<Node>>('/api/v1/nodes'),
     get<List<Service>>('/api/v1/services'),
-    get<List<Activity>>('/api/v1/activity')
+    get<List<Activity>>('/api/v1/recent-events')
   ])
   return { system, nodes: nodes.items, services: services.items, activity: activity.items }
 }

@@ -101,13 +101,15 @@ func (s *Server) Handler() http.Handler {
 		}
 		writeError(w, r, http.StatusNotFound, "NOT_FOUND", "Service not found")
 	})
-	mux.HandleFunc("GET /api/v1/activity", func(w http.ResponseWriter, r *http.Request) {
+	activityHandler := func(w http.ResponseWriter, r *http.Request) {
 		snapshot, ok := s.snapshot(w, r)
 		if !ok {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"items": snapshot.Activity})
-	})
+	}
+	mux.HandleFunc("GET /api/v1/activity", activityHandler)
+	mux.HandleFunc("GET /api/v1/recent-events", activityHandler)
 	mux.HandleFunc("GET /api/v1/nodes/{id}/metrics", func(w http.ResponseWriter, r *http.Request) {
 		snapshot, ok := s.snapshot(w, r)
 		if !ok {

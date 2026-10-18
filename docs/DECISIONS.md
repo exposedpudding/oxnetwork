@@ -73,3 +73,11 @@ Record material decisions here. Do not rewrite history; append superseding decis
 **Decision:** Host both the Authentik identity server and oxnet.work on Home GW. Use private Tailscale reachability and HTTPS names `auth.oxnet.work` (proposed) and `oxnet.work` (owner specified). Do not create public ingress by default. Authentik is a separate stack service with its own PostgreSQL database; oxnet.work remains a single Go/SQLite control-plane container.
 
 **Reason:** The owner explicitly chose co-location. Authentik requires PostgreSQL, which is an exception for the identity service to the project's lightweight, SQLite-only **control-plane** baseline. Home GW capacity and existing services must be checked before activation.
+
+## ADR-010 - Private Home GW names through Tailscale Service
+
+**Status:** Implemented and verified on 18 October 2026
+
+**Decision:** Serve `oxnet.work` and `auth.oxnet.work` at a dedicated Tailscale Service VIP through a loopback-bound Caddy edge on Home GW. Resolve both names to that VIP through tailnet split DNS. Use a trusted certificate issued through Spaceship DNS-01 and keep both names without public A/AAAA answers. Run Authentik and its PostgreSQL database alongside the Go/SQLite app. Keep all inventory simulated until an owner-approved live adapter is enabled.
+
+**Reason:** The owner requested private access with familiar HTTPS names while preserving the existing node Serve routes and avoiding public ingress. The verified live state and remaining checks are in `deploy/home-gw/DEPLOYMENT_STATE.md`.

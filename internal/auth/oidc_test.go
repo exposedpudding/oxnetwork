@@ -144,6 +144,10 @@ func TestOIDCLoginSessionLogoutAndReplay(t *testing.T) {
 	if got := request("/api/v1/nodes", "GET", []*http.Cookie{sessionCookie}, "").Code; got != http.StatusUnauthorized {
 		t.Fatalf("revoked session: %d", got)
 	}
+	signedOut := request("/auth/signed-out", "GET", nil, "")
+	if signedOut.Code != http.StatusOK || !strings.Contains(signedOut.Body.String(), "Signed out of oxnet.work") {
+		t.Fatalf("signed-out page: %d %s", signedOut.Code, signedOut.Body.String())
+	}
 	if got := request(callbackPath, "GET", []*http.Cookie{stateCookie}, "").Code; got != http.StatusBadRequest {
 		t.Fatalf("replayed callback: %d", got)
 	}

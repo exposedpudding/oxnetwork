@@ -1,0 +1,14 @@
+[Unit]
+Description=Private oxnet.work DNS for the Tailscale tailnet
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/dnsmasq --no-daemon --conf-file=/etc/oxnetwork-dns.conf
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

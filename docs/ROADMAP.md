@@ -123,7 +123,7 @@ Acceptance: actions are capability-scoped and every execution is auditable.
 
 ## Milestone 10 - authentication/security hardening
 
-- [ ] OIDC/AuthentiK integration.
+- [x] OIDC/Authentik integration (verified on private Home GW with owner MFA; see `deploy/home-gw/DEPLOYMENT_STATE.md`).
 - [ ] Scopes/roles.
 - [ ] Session security.
 - [ ] CSRF protections.

@@ -1,0 +1,8 @@
+[Unit]
+Description=Renew oxnet.work DNS-01 certificate
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'set -a; . /etc/oxnetwork-acme.env; set +a; /usr/bin/acme.sh --cron --home /root/.acme.sh --server letsencrypt'

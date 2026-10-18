@@ -1,33 +1,22 @@
-# Home GW completion handoff
+# Home GW handoff
 
-This is the work order for an agent with Home GW shell access and access to the Tailscale and Spaceship administration consoles. The owner authorized hosting both Authentik and oxnet.work on Home GW and chose **private split DNS**. Do not open internet ingress, add a Pangolin route, or change the existing Guacamole and Filebrowser Tailscale Serve routes.
+Read [DEPLOYMENT_STATE.md](DEPLOYMENT_STATE.md) before changing the host. It records the verified live deployment on 18 October 2026, exact paths, private network addresses, backups, and remaining work. [README.md](README.md) retains the setup procedure for a fresh installation; most of those steps have already been done on Home GW.
 
-## Last reported state; verify before changes
+## Current state
 
-- Home GW is the Tailscale device `home-gw`, last reported at `100.71.184.10`.
-- Authentik 2026.8.4 and its PostgreSQL/worker containers are healthy. Authentik listens on Home GW loopback `127.0.0.1:9000`.
-- The oxnet.work image was built but the app was stopped. Its loopback host port is **8090** because Guacamole uses 8080.
-- Source and Compose project are at `/opt/oxnetwork` and `/opt/oxnetwork/deploy/home-gw`. Previous local changes were recorded in `LOCAL_CHANGES.md`; preserve them when updating Git.
-- Tailscale 1.102.4 serves Guacamole on the node's 443 and Filebrowser on its 8443. A separate Tailscale Service virtual IP is the planned ingress for the two new names.
-- Public `auth.oxnet.work` previously resolved to `51.89.148.88` with a wrong certificate; `oxnet.work` had no public A record. Check again before editing Spaceship DNS.
-- No private DNS resolver, Service registration, certificate, owner MFA, OIDC app, or live browser sign-in has been reported complete. Treat these as unverified.
+- Home GW (`100.71.184.10`) runs Authentik 2026.8.4, PostgreSQL, the oxnet.work app, and Caddy. The Compose project is `/opt/oxnetwork/deploy/home-gw`.
+- `svc:oxnet-work` serves private TCP 443 at `100.90.240.202`; split DNS resolves `oxnet.work` and `auth.oxnet.work` to that VIP. The public DNS answers for those names have no A/AAAA records. Do not publish either service through Pangolin, Funnel, or a public router port.
+- Spaceship DNS-01 issued a trusted certificate for both names. Its credentials and all other secrets are stored only on Home GW. `oxnetwork-acme-renew.timer` is enabled.
+- Authentik initial admin setup and the confidential `oxnet-work` OIDC application are complete. Both `akadmin` and `liam` are bound to the app. The owner enrolled MFA on both accounts and requested that `akadmin` remain available.
+- oxnet.work is running in demo mode. Browser sign-in through Authentik and the Overview, Compute, and Network pages worked. The authenticated API returned data; an unauthenticated API request returned 401. The original `/api/v1/activity` frontend request was filtered in the browser, so the frontend now uses `/api/v1/recent-events` for the same data.
+- The owner signed in as `liam` with MFA and reached the demo dashboard. Sign out now lands on `/auth/signed-out` after revoking the app session; it leaves the Authentik SSO session available. The owner's browser check of the new sign-out page is pending.
+- The Home GW source was archive-copied from GitHub `main`, then updated with the activity alias and sign-out fix from this session. The host has no `.git` directory. `/opt/oxnetwork/SOURCE_COMMIT.txt` records the synced GitHub commit. Preserve `.env`, `secrets/`, `certs/`, and `/etc/oxnetwork-acme.env`.
 
-## Work order
+## Remaining work
 
-1. On Home GW, run `cd /opt/oxnetwork/deploy/home-gw && bash preflight-home-gw.sh`. Preserve its output without secrets. Check `git status`, `LOCAL_CHANGES.md`, and Compose state. Update source from GitHub `main` to the archive's `SOURCE_COMMIT.txt` or newer without overwriting local `.env`, `secrets/`, `certs/`, or local changes. Never run a blind `git reset --hard`.
-2. Check `tailscale service list --json`, node Serve status, Home GW's tag (`tagged-devices` at last report), port 8445 availability, and tailnet Service permissions/ACLs. Define and advertise a **separate Service** with raw TCP 443 targeting `127.0.0.1:8445`. Record its virtual IP. Do not reuse the node's 443 or 8443 and do not enable Funnel. Follow the installed CLI's `tailscale service --help` and the admin console because syntax and permissions depend on version and tailnet policy.
-3. Set up a tailnet-reachable DNS resolver if none exists. In Tailscale DNS, configure split DNS for `oxnet.work` to that resolver. Its answers for `oxnet.work` and `auth.oxnet.work` must be the **Service virtual IP**, not `100.71.184.10`. Check A and AAAA results from a tailnet client and do not let a public IPv6 answer bypass the private route. Preserve other records under the zone through forwarding or explicit records. Remove the stale public `auth.oxnet.work` A record in Spaceship once private resolution is ready. Use Spaceship public DNS for `_acme-challenge` TXT records for this deployment.
-4. On Home GW, issue a trusted certificate covering both names through Spaceship DNS-01, install its full chain and key at `deploy/home-gw/certs/fullchain.pem` and `certs/key.pem`, restrict access, and arrange renewal plus a `private-https` restart after renewal. Keep Spaceship API credentials on Home GW only. Start the supplied Caddy edge with `docker compose --env-file .env -f compose.yml -f private-edge.compose.yml up -d private-https`. Run `bash verify-private-edge.sh` on Home GW and test HTTPS from a tailnet client.
-5. Complete Authentik's initial `akadmin` password setup if unfinished, create the owner's normal account with MFA, and create the confidential OAuth2/OIDC application `oxnet-work`. Its redirect URI is exactly `https://oxnet.work/auth/callback`, the issuer is `https://auth.oxnet.work/application/o/oxnet-work/`, and its access policy should allow only the owner or intended group. Enter credentials locally through `sudo bash finish-oxnet.sh` from a real terminal; it stores the OIDC client secret on Home GW and starts the app. Do not send account or client secrets in chat.
-6. Confirm locally that `127.0.0.1:8090/readyz` is ready and that the app's container can resolve and validate the Authentik issuer name and certificate. From a tailnet browser, verify login, authenticated API, sign out, and that an unauthenticated API call receives 401. From outside the tailnet, verify both names are unreachable. Check `tailscale serve status` again to prove Guacamole and Filebrowser remain intact.
-7. The dashboard remains simulated by default. After sign-in works, optionally enable [read-only Tailscale inventory](live-tailscale.compose.yml) using [README.md](README.md). It reports device identity and unknown health; it does not provide host metrics.
-8. Record the Service VIP/name, private resolver address, certificate renewal method, Compose path, source commit, image versions, backup location, test results, and template changes in a local deployment note. Report any blocker with sanitized command output. Back up Authentik PostgreSQL/data, oxnet SQLite, certificates, and secrets before considering the installation complete.
+1. The owner verified a fresh `liam` sign-in through MFA and reached the oxnet.work dashboard. Keep the `akadmin` account as requested. Both accounts are currently app-bound; review whether that access policy is appropriate after the owner test.
+2. Confirm the owner's browser sign-out check and decide whether the Authentik SSO session should also end. Test both private names from a device outside the tailnet and confirm the Filebrowser node Serve route still works.
+3. Test a full restore on a separate host and arrange a durable second off-host copy. The refreshed root-only backup and an isolated PostgreSQL restore check exist at `/opt/oxnetwork-backups`; a Windows DPAPI-encrypted copy exists in this Codex task's `outputs/` directory. DPAPI recovery is tied to the current Windows user profile.
+4. Optionally enable the read-only Tailscale inventory adapter only after the owner has reviewed its account-wide API permission. Demo mode accurately marks all current inventory as simulated.
 
-## Inputs created or supplied on Home GW
-
-- Tailscale Service definition and admin permissions, plus a resolver reachable by tailnet clients.
-- Spaceship DNS access for DNS-01 and removal of the stale public A record. Keep API credentials out of this archive and Git.
-- Certificate and automatic renewal.
-- Authentik owner credentials/MFA and OIDC client ID/secret. Use local prompts and protected secret files.
-
-This handoff is based on the repository and prior Home GW agent reports. The cloud workspace has no Home GW VPN access, so no live host changes or verification are claimed here.
+Do not paste credentials into chat, logs, or Git. Do not rerun bootstrap or rotate Authentik's secret key.

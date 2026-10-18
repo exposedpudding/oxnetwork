@@ -30,3 +30,9 @@
 ## Coordination
 
 Codex should assign one Claude work package at a time and integrate only after tests and architecture review. Do not let two agents edit the same files concurrently unless explicitly coordinated.
+
+## Next live-data slice: verified service health
+
+- Add fixed, operator-configured read-only probes for private services, beginning with oxnet.work and Authentik on Home GW. Use short deadlines, verified TLS where applicable, no redirects, and no arbitrary dashboard-supplied URLs. Record the probed endpoint and observation time; a recent host-agent report must not count as service health.
+- Merge probe observations with the Tailscale snapshot before `Repository.ReplaceSnapshot` runs. That method deletes `inventory_services` on each refresh, so writing service rows separately without changing reconciliation would lose them within a minute. Test refresh, probe failure, timeout, and stale-result behavior.
+- Keep Docker inventory as a separate opt-in provider. Do not mount the unrestricted Docker socket into the web server or infer container health from an HTTP probe. Decide the least-privilege host collector or filtered Docker API path before implementation.

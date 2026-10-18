@@ -79,7 +79,7 @@ Acceptance: a demo workflow can run end-to-end and produce auditable step result
 - [x] Linux amd64 build; arm64 build and on-device test remain.
 - [x] Windows 11 per-user logon packaging; a boot-time service remains optional.
 
-Acceptance met for Home GW, OX-C-01, the OVH VPS and one Windows 11 PC: all four report metrics without inbound public ports. Service health, jobs and Docker data remain separate integration work.
+Acceptance met for Home GW, OX-C-01, the OVH VPS and three Windows 11 PCs (DESKTOP-HHBRUDD, OX-01 and OX-02): all six report metrics without inbound public ports. Service health, jobs and Docker data remain separate integration work.
 
 ## Milestone 6 - Tailscale + Docker read-only
 

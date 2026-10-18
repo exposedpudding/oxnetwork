@@ -2,7 +2,7 @@
 
 The optional Go agent reads CPU usage, physical RAM usage, system/root disk usage and capacity on Linux or Windows 11. It sends a small JSON report every 30 seconds to oxnet.work. It has no listener, Docker socket, action API or remote shell. A report is matched to the existing Tailscale inventory node ID, never to a display hostname. The server marks the report stale after 90 seconds. `healthy` on a host-agent observation means **recent reporting**, not that the host's services are healthy.
 
-As of 18 October 2026, Home GW, `ox-c-01`, `ovh-vps` and Windows 11 `DESKTOP-HHBRUDD` report metrics. The other four discovered devices have no host collector. The Windows installation runs in the owner's interactive session and starts at logon, not at boot before sign-in.
+As of 18 October 2026, Home GW, `ox-c-01`, `ovh-vps` and Windows 11 `DESKTOP-HHBRUDD`, `OX-01` and `OX-02` report metrics. The other two discovered devices have no host collector. The Windows installations run in each owner's interactive session and start at logon, not at boot before sign-in.
 
 ## Server enrollment
 
@@ -54,5 +54,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install-windows.ps1 -NodeI
 ```
 
 The script installs under `%LOCALAPPDATA%\oxnetwork\agent`, restricts the token to the current user and SYSTEM, registers an `HKCU\...\Run` logon entry, and starts the agent in a hidden window. Remove the temporary transferred token after installation. Read `%LOCALAPPDATA%\oxnetwork\agent\agent.log` for errors. The agent retries transient network failures every 30 seconds; if the process exits, the logon entry starts it at the next sign-in.
+
+`OX-01` uses inventory ID `tailscale-2411985639221640`; `OX-02` uses `tailscale-7749910614675252`. Their Windows amd64 binary, generic installer and separate token files were transferred through Tailscale Taildrop. The owner ran the installer in a PowerShell session on each machine. Each host sent a test report and then repeated reports about 30 seconds apart; the temporary transferred token files were removed by the wrapper after installation. For future scripted preflights of the Windows GUI-subsystem binary, use `Start-Process -Wait -PassThru` and its `ExitCode`: a direct PowerShell invocation may leave `$LASTEXITCODE` unset even when the report succeeds. Taildrop files may need to be pulled into the active Windows profile with `tailscale file get "$env:USERPROFILE\Downloads"` while Tailscale is connected.
 
 Do not reuse one node's token for another. The Windows agent reads the system drive; the Linux agent reads `/`. Other disks, temperature, service state, jobs, and containers need separate providers. Device entries without an installed agent remain `unknown` and show `Not reported` resource metrics.

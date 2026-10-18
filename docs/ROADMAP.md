@@ -70,16 +70,16 @@ Acceptance: a demo workflow can run end-to-end and produce auditable step result
 
 ## Milestone 5 - Agent foundation
 
-- [ ] Agent binary/service.
-- [ ] Enrollment/bootstrap.
-- [ ] Heartbeat/capability report.
-- [ ] Basic host metrics.
+- [x] Go agent binary for Linux and Windows 11; Home GW systemd service and Windows user-logon installer.
+- [x] Manual per-node telemetry token enrollment; automated bootstrap remains.
+- [x] Periodic report and monitor capability for enrolled nodes; richer capabilities remain.
+- [x] Basic host CPU, physical RAM, system/root disk and capacity metrics.
 - [ ] Typed action queue/result.
-- [ ] Agent offline/stale handling.
-- [ ] Linux amd64/arm64 build.
-- [ ] Windows service packaging approach.
+- [x] Agent report stale after 90 seconds; explicit offline state remains.
+- [x] Linux amd64 build; arm64 build and on-device test remain.
+- [x] Windows 11 per-user logon packaging; a boot-time service remains optional.
 
-Acceptance: one real node appears from a live agent and reports metrics without inbound public ports.
+Acceptance met for Home GW and one Windows 11 PC: both report metrics without inbound public ports. Service health, jobs and Docker data remain separate integration work.
 
 ## Milestone 6 - Tailscale + Docker read-only
 

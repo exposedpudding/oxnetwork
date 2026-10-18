@@ -1,0 +1,27 @@
+[Unit]
+Description=oxnet.work read-only host metrics collector for %i
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+LoadCredential=host-token:/etc/oxnetwork/host-agents/%i
+ExecStart=/usr/local/libexec/oxnet-host-agent -node-id %i -token-file %d/host-token
+Restart=always
+RestartSec=10s
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

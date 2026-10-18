@@ -45,16 +45,16 @@ export function ComputeView({ data, query, demoMode }: { data: ComputeData; quer
 export function NodeDetailView({ node }: { node: NodeData }) {
   const freshness = node.freshness ?? 'unknown'
   return <>
-    <div className="page-heading"><div><p className="eyebrow"><a className="inline-link" href="/">Command centre / Overview</a> / Node</p><h1>{node.name}</h1><p>{node.role ?? 'Role not reported'} · {node.platform ?? 'Platform not reported'}</p></div><StatusChip status={freshness === 'stale' ? 'stale' : node.health.state} /></div>
+    <div className="page-heading"><div><p className="eyebrow"><a className="inline-link" href="/">Command centre / Overview</a> / Node</p><h1>{node.name}</h1><p>{node.role ?? 'Role not reported'} · {node.platform ?? 'Platform not reported'}</p></div><StatusChip status={freshness === 'stale' ? 'stale' : node.health.state}>{freshness === 'stale' ? 'Stale' : node.health.source === 'host-agent' ? 'Reporting' : node.health.state}</StatusChip></div>
     {node.simulated && <div className="demo-banner" role="status"><strong>Demo mode</strong><span>This node and its observations are simulated. No live agent is connected.</span></div>}
     <section aria-label="Node summary" className="ox-grid compute-summary">
-      <StatCard label="Health" value={freshness === 'stale' ? 'Stale' : node.health.state} detail={`Observed ${timeLabel(node.health.observed_at)}`} />
+      <StatCard label={node.health.source === 'host-agent' ? 'Agent report' : 'Health'} value={freshness === 'stale' ? 'Stale' : node.health.source === 'host-agent' ? 'Reporting' : node.health.state} detail={`Observed ${timeLabel(node.health.observed_at)}`} />
       <StatCard label="vCPU" value={node.metrics.vcpu ?? 'Not reported'} detail="Reported capacity" />
       <StatCard label="RAM" value={node.metrics.ram_gb == null ? 'Not reported' : `${node.metrics.ram_gb} GB`} detail="Reported capacity" />
       <StatCard label="Source" value={node.health.source ?? 'Not reported'} detail={node.simulated ? 'Simulated' : 'Observed'} />
     </section>
     <div className="detail-grid node-detail-grid">
-      <Card title="Resource use"><div className="metric-stack"><MetricBar label="CPU" value={node.metrics.cpu_percent} /><MetricBar label="RAM" value={node.metrics.ram_percent} /></div><p className="muted-copy">Storage, temperature and latency are not reported by this source.</p></Card>
+      <Card title="Resource use"><div className="metric-stack"><MetricBar label="CPU" value={node.metrics.cpu_percent} /><MetricBar label="RAM" value={node.metrics.ram_percent} /><MetricBar label="Root disk" value={node.metrics.disk_percent} /></div><p className="muted-copy">Temperature and latency are not reported by this source. Host agent health means recent reporting, not that every service is working.</p></Card>
       <Card title="Capabilities">{node.capabilities.length ? <ul className="capability-list">{node.capabilities.map(capability => <li key={capability}>{capability}</li>)}</ul> : <EmptyState title="No capabilities reported" />}</Card>
     </div>
     {!node.simulated && <Card title="Tailscale identity" className="compute-section"><p className="muted-copy">Addresses: {node.addresses?.length ? node.addresses.join(', ') : 'Not reported'} · Last seen: {node.last_seen ? timeLabel(node.last_seen) : 'Not reported'}. Last seen is a Tailscale control-plane value, not a health check.</p></Card>}

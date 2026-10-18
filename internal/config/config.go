@@ -37,6 +37,9 @@ type Config struct {
 		OAuthClientID         string `yaml:"oauth_client_id"`
 		OAuthClientSecretFile string `yaml:"oauth_client_secret_file"`
 	} `yaml:"tailscale"`
+	HostAgent struct {
+		TokenDir string `yaml:"token_dir"`
+	} `yaml:"host_agent"`
 }
 
 func Load(path string) (Config, error) {
@@ -96,6 +99,9 @@ func Load(path string) (Config, error) {
 	if value, ok := os.LookupEnv("OXNET_TAILSCALE_OAUTH_CLIENT_SECRET_FILE"); ok {
 		c.Tailscale.OAuthClientSecretFile = value
 	}
+	if value, ok := os.LookupEnv("OXNET_HOST_AGENT_TOKEN_DIR"); ok {
+		c.HostAgent.TokenDir = value
+	}
 	if err := c.Validate(); err != nil {
 		return c, err
 	}
@@ -115,6 +121,9 @@ func (c Config) Validate() error {
 	}
 	if c.Features.ActionsEnabled {
 		return errors.New("actions are not implemented and cannot be enabled")
+	}
+	if c.HostAgent.TokenDir != "" && c.Features.DemoProvider {
+		return errors.New("host agent requires live inventory")
 	}
 	if !c.Features.DemoProvider {
 		hasOAuthID := c.Tailscale.OAuthClientID != ""

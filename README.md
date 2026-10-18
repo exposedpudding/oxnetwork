@@ -55,7 +55,7 @@ The default deployment should remain small enough to run comfortably as a single
 
 ## Current build
 
-Milestones 0 and 1 are complete, and the app has read-only Compute, Node Detail and Network screens. The production routes are `/`, `/compute`, `/nodes/{id}`, and `/network`. Authentik OIDC and the private Home GW deployment are running at `https://oxnet.work`. Home GW now uses a Tailscale OAuth client limited to device read access and shows live tailnet device identity; the original demo provider remains the default for local development. See [Home GW deployment state](deploy/home-gw/DEPLOYMENT_STATE.md) for the current operational handoff. Tailscale does not supply host health, CPU/RAM, services, jobs or network links; those integrations and node actions remain pending. Keep the app private to the tailnet.
+Milestones 0 and 1 are complete, and the app has read-only Compute, Node Detail and Network screens. The production routes are `/`, `/compute`, `/nodes/{id}`, and `/network`. Authentik OIDC and the private Home GW deployment are running at `https://oxnet.work`. Home GW uses a Tailscale OAuth client limited to device read access and shows live tailnet identity; lightweight Go agents on Home GW and one Windows 11 PC now report live CPU, RAM, system disk and capacity. The original demo provider remains the default for local development. See [Home GW deployment state](deploy/home-gw/DEPLOYMENT_STATE.md) and [agent enrollment](deploy/agents/README.md). Other devices remain unverified until enrolled. Service health, jobs, containers and network links need separate integrations; node actions remain pending. Keep the app private to the tailnet.
 
 ### Run locally
 

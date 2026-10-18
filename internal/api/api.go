@@ -3,15 +3,18 @@ package api
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -22,14 +25,15 @@ import (
 )
 
 type Server struct {
-	DB          *sql.DB
-	Repo        inventory.Repository
-	WebDir      string
-	SiteName    string
-	AuthEnabled bool
-	SourceMode  string
-	Log         *slog.Logger
-	Now         func() time.Time
+	DB                 *sql.DB
+	Repo               inventory.Repository
+	WebDir             string
+	SiteName           string
+	AuthEnabled        bool
+	SourceMode         string
+	HostAgentTokensDir string
+	Log                *slog.Logger
+	Now                func() time.Time
 }
 
 func (s *Server) sourceMode() string {
@@ -41,6 +45,7 @@ func (s *Server) sourceMode() string {
 
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("POST /internal/v1/host-report/{id}", s.hostReport)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
@@ -175,6 +180,56 @@ func (s *Server) Handler() http.Handler {
 	})
 	mux.HandleFunc("/", s.static)
 	return s.withMiddleware(mux)
+}
+
+var hostNodeIDPattern = regexp.MustCompile(`^tailscale-[0-9]+$`)
+
+func (s *Server) hostReport(w http.ResponseWriter, r *http.Request) {
+	if s.HostAgentTokensDir == "" || s.sourceMode() != "tailscale" {
+		writeError(w, r, http.StatusNotFound, "NOT_FOUND", "Endpoint not available")
+		return
+	}
+	nodeID := r.PathValue("id")
+	if !hostNodeIDPattern.MatchString(nodeID) {
+		writeError(w, r, http.StatusNotFound, "NOT_FOUND", "Endpoint not available")
+		return
+	}
+	secret, err := os.ReadFile(filepath.Join(s.HostAgentTokensDir, nodeID))
+	if err != nil || len(strings.TrimSpace(string(secret))) < 32 {
+		writeError(w, r, http.StatusUnauthorized, "UNAUTHENTICATED", "Agent credential required")
+		return
+	}
+	provided := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	if provided == "" || provided == r.Header.Get("Authorization") || subtle.ConstantTimeCompare([]byte(provided), []byte(strings.TrimSpace(string(secret)))) != 1 {
+		writeError(w, r, http.StatusUnauthorized, "UNAUTHENTICATED", "Agent credential required")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	r.Body = http.MaxBytesReader(w, r.Body, 4096)
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	var sample inventory.HostReport
+	if err := decoder.Decode(&sample); err != nil {
+		writeError(w, r, http.StatusBadRequest, "INVALID_REPORT", "Invalid host report")
+		return
+	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		writeError(w, r, http.StatusBadRequest, "INVALID_REPORT", "Invalid host report")
+		return
+	}
+	if err := sample.Validate(); err != nil {
+		writeError(w, r, http.StatusBadRequest, "INVALID_REPORT", "Invalid host report")
+		return
+	}
+	if err := s.Repo.StoreHostReport(r.Context(), nodeID, sample, s.now()); err != nil {
+		if s.Log != nil {
+			s.Log.Error("host report storage failed", "error", err)
+		}
+		writeError(w, r, http.StatusServiceUnavailable, "REPORT_UNAVAILABLE", "Host report unavailable")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) snapshot(w http.ResponseWriter, r *http.Request) (domain.Snapshot, bool) {

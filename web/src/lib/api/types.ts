@@ -29,6 +29,7 @@ export type NodeFreshness = 'fresh' | 'stale' | 'unknown';
 
 export interface Metrics {
   cpu_percent?: number;
+  disk_percent?: number;
   ram_percent?: number;
   vcpu?: number;
   ram_gb?: number;

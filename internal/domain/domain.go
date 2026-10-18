@@ -20,10 +20,11 @@ func (h Health) Freshness(now time.Time) string {
 }
 
 type Metrics struct {
-	CPUPercent *float64 `json:"cpu_percent,omitempty"`
-	RAMPercent *float64 `json:"ram_percent,omitempty"`
-	VCPU       *int     `json:"vcpu,omitempty"`
-	RAMGB      *int     `json:"ram_gb,omitempty"`
+	CPUPercent  *float64 `json:"cpu_percent,omitempty"`
+	RAMPercent  *float64 `json:"ram_percent,omitempty"`
+	DiskPercent *float64 `json:"disk_percent,omitempty"`
+	VCPU        *int     `json:"vcpu,omitempty"`
+	RAMGB       *int     `json:"ram_gb,omitempty"`
 }
 
 type Node struct {

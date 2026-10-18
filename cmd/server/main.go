@@ -115,6 +115,7 @@ func main() {
 	}
 	initialCancel()
 	app := &api.Server{DB: database, Repo: repo, WebDir: cfg.Server.WebDir, SiteName: cfg.UI.SiteName, AuthEnabled: cfg.OIDCEnabled(), SourceMode: mode, Log: log}
+	app.HostAgentTokensDir = cfg.HostAgent.TokenDir
 	var handler http.Handler = app.Handler()
 	if cfg.OIDCEnabled() {
 		identity, err := auth.New(context.Background(), database, cfg)

@@ -19,9 +19,18 @@ describe('OverviewView', () => {
   it('labels Tailscale data without claiming health or simulated services', () => {
     const node: Node = { id: 'tailscale-1', name: 'gateway', role: 'Tailnet device', platform: 'linux', health: { ...health, state: 'unknown', source: 'tailscale' }, freshness: 'fresh', capabilities: [], metrics: {}, addresses: ['100.64.0.10'], simulated: false }
     const html = renderToStaticMarkup(<OverviewView data={{ system: { name: 'oxnet.work', site_name: 'Test', server_time: '2026-10-17T12:00:00Z', demo_mode: false }, nodes: [node], services: [], activity: [] }} query="" />)
-    expect(html).toContain('Tailscale inventory')
-    expect(html).toContain('Health, resource use, services and network links are not verified')
+    expect(html).toContain('Live inventory')
+    expect(html).toContain('Other devices and service health remain unverified')
     expect(html).not.toContain('All inventory and activity shown here is simulated')
     expect(html).toContain('Not reported')
+  })
+  it('shows host agent readings only for the reporting node', () => {
+    const node: Node = { id: 'tailscale-1', name: 'home-gw', role: 'Tailnet device', platform: 'linux', health: { ...health, source: 'host-agent' }, freshness: 'fresh', capabilities: ['monitor'], metrics: { cpu_percent: 18, ram_percent: 42, disk_percent: 37, vcpu: 4, ram_gb: 16 }, simulated: false }
+    const html = renderToStaticMarkup(<OverviewView data={{ system: { name: 'oxnet.work', site_name: 'Test', server_time: '2026-10-17T12:00:00Z', demo_mode: false }, nodes: [node], services: [], activity: [] }} query="" />)
+    expect(html).toContain('1 host reports CPU, RAM and disk')
+    expect(html).toContain('Disk')
+    expect(html).toContain('37%')
+    expect(html).toContain('Reporting')
+    expect(html).toContain('host-agent')
   })
 })

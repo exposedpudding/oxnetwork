@@ -1,6 +1,6 @@
 # Home GW deployment plan
 
-**Current live status:** See [DEPLOYMENT_STATE.md](DEPLOYMENT_STATE.md), updated 18 October 2026. Private networking, TLS, Authentik OIDC, and oxnet.work are running. The owner signed in as `liam` with MFA; `akadmin` remains available with MFA at the owner's request. The dashboard now imports real Tailscale device identity through a read-only OAuth client. Host health and resource metrics are not yet connected. A full restore on a separate host remains. Preserve the certificate, DNS, Tailscale Service, `.env`, and secrets when continuing.
+**Current live status:** See [DEPLOYMENT_STATE.md](DEPLOYMENT_STATE.md), updated 18 October 2026. Private networking, TLS, Authentik OIDC, and oxnet.work are running. The owner signed in as `liam` with MFA; `akadmin` remains available with MFA at the owner's request. The dashboard imports real Tailscale device identity and receives host CPU, RAM, disk and capacity from agents on Home GW and `DESKTOP-HHBRUDD`. Other devices and service health remain unverified. A full restore on a separate host remains. Preserve the certificate, DNS, Tailscale Service, `.env`, and secrets when continuing.
 
 **Historical state (prior handoff):** Authentik was healthy on Home GW while oxnet.work was stopped. The owner chose Home GW for both services and private Tailscale access for `auth.oxnet.work` and `oxnet.work`. Use the live state document above before running any setup commands below.
 
@@ -27,7 +27,17 @@ docker compose --env-file .env -f compose.yml -f private-edge.compose.yml -f liv
 docker compose --env-file .env -f compose.yml -f private-edge.compose.yml -f live-tailscale.compose.yml up -d oxnet-work
 ```
 
-Confirm `GET /api/v1/system` says `"demo_mode":false` after login, then check that `/api/v1/nodes` lists Tailscale devices with `"simulated":false` and `"state":"unknown"`. Verify the OAuth secret and access token stay outside logs and responses. Switching to live mode clears old demo inventory; a failed Tailscale poll leaves an empty list initially, or the last successful list after a later outage, until a retry succeeds. Live inventory reports device identity only, not host health or topology. A future `docker compose` invocation for oxnet-work must include this overlay to keep live mode enabled.
+Confirm `GET /api/v1/system` says `"demo_mode":false` after login, then check that `/api/v1/nodes` lists Tailscale devices with `"simulated":false`. Devices without agents remain `unknown` with no resource metrics. Verify the OAuth secret and access token stay outside logs and responses. Switching to live mode clears old demo inventory; a failed Tailscale poll leaves an empty list initially, or the last successful list after a later outage, until a retry succeeds. Tailscale reports device identity only, not host health or topology. A future `docker compose` invocation for oxnet-work must include this overlay to keep live mode enabled.
+
+### Host metrics agents
+
+The Home GW deployment also uses `live-host-agent.compose.yml`, which mounts the per-node report token directory read-only. Include **both** live overlays in every future oxnet-work Compose command:
+
+```bash
+docker compose -f compose.yml -f private-edge.compose.yml -f live-tailscale.compose.yml -f live-host-agent.compose.yml up -d --build oxnet-work
+```
+
+The Home GW collector runs as `oxnet-host-agent@tailscale-4670134924505329.service` and posts to the loopback app port. The Windows 11 `DESKTOP-HHBRUDD` collector starts from its current user's logon entry and posts through private HTTPS. Each has a different protected token. See [agent enrollment](../agents/README.md) before adding another host. A fresh sample means the agent is reporting; it does not verify other services. The agent endpoint requires its bearer token and returns 401 without one.
 
 ## Prepare secrets on Home GW
 

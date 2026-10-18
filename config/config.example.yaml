@@ -13,6 +13,10 @@ features:
 #   tailnet: "-" # Tailscale shorthand for the credential's own tailnet
 #   oauth_client_id: "replace-with-tailscale-client-id"
 #   oauth_client_secret_file: "/run/secrets/tailscale_oauth_client_secret"
+# For per-node host metrics, mount a root-owned directory of token files.
+# Each filename must be the exact tailscale-NODEID accepted for that agent.
+# host_agent:
+#   token_dir: "/run/host-agent-tokens"
 # To enable Authentik or another OIDC provider, set all four values below.
 # Keep the client secret in a mounted file, never in this YAML.
 # auth:

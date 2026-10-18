@@ -1,0 +1,8 @@
+# Home GW Linux host metrics. The collector itself runs as a restricted
+# systemd service on the host and posts only to the loopback-bound app port.
+services:
+  oxnet-work:
+    environment:
+      OXNET_HOST_AGENT_TOKEN_DIR: /run/host-agent-tokens
+    volumes:
+      - ./secrets/host-agents:/run/host-agent-tokens:ro

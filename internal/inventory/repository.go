@@ -181,6 +181,9 @@ func (r Repository) Snapshot(ctx context.Context, now time.Time) (domain.Snapsho
 			result.Nodes[i].Capabilities = values
 		}
 	}
+	if err := r.applyHostObservations(ctx, &result, now); err != nil {
+		return result, err
+	}
 	rows, err = r.DB.QueryContext(ctx, `SELECT s.id,s.name,o.health_state,o.observed_at,o.stale_after_seconds,o.source,o.simulated FROM inventory_services s JOIN service_observations o ON o.service_id=s.id ORDER BY s.id`)
 	if err != nil {
 		return result, err

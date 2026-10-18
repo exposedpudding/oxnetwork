@@ -89,3 +89,11 @@ Record material decisions here. Do not rewrite history; append superseding decis
 **Decision:** Activate the read-only Tailscale adapter on Home GW using an OAuth trust credential scoped only to `devices:core:read`. The app exchanges the client credential for short-lived access tokens and renews them automatically. Keep the OAuth secret in a root-owned Compose secret file on Home GW. Show live device identity, tailnet addresses and Tailscale last-seen values without presenting them as host health or resource metrics.
 
 **Reason:** The owner requested live dashboard data after verifying private access. Traditional Tailscale API tokens grant broad API access; the scoped OAuth client limits the app to the device list endpoint. Separate adapters are needed for CPU, RAM, services, jobs and network connections.
+
+## ADR-012 - Per-node host metrics agents
+
+**Status:** Implemented for Home GW and one Windows 11 PC on 18 October 2026
+
+**Decision:** Use an outbound-only Go collector on Linux or Windows for CPU, physical RAM, system/root disk and capacity. Each Tailscale inventory node has its own telemetry-submit token; the server fixes report identity from the URL and a matching root-owned token file, then timestamps the receipt. Host reports are stored separately from Tailscale inventory so a device refresh cannot erase them. After 90 seconds without a report, the node becomes stale. Keep service health, jobs, containers, and network links unavailable until their own adapters report them.
+
+**Reason:** Tailscale device discovery cannot measure host resources. A small local agent avoids broad Docker socket access and inbound ports, while per-node tokens limit the damage of one compromised collector. `healthy` labels recent reporting only, so the UI states that service health remains unverified.

@@ -1,0 +1,27 @@
+[Unit]
+Description=oxnet.work read-only Home GW host metrics collector
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+LoadCredential=host-token:/opt/oxnetwork/deploy/home-gw/secrets/host-agents/%i
+ExecStart=/usr/local/libexec/oxnet-host-agent -node-id %i -endpoint http://127.0.0.1:8090/internal/v1/host-report -token-file %d/host-token
+Restart=always
+RestartSec=10s
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

@@ -235,8 +235,8 @@ func (c Config) validateProbes() error {
 		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" {
 			return fmt.Errorf("%s: url must be an absolute http or https URL", label)
 		}
-		if u.User != nil || u.Fragment != "" {
-			return fmt.Errorf("%s: url must not contain credentials or a fragment", label)
+		if u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {
+			return fmt.Errorf("%s: url must not contain credentials, a query or a fragment", label)
 		}
 		for _, status := range probe.ExpectStatus {
 			if status < 100 || status > 599 {

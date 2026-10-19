@@ -26,6 +26,8 @@ func TestServiceProbeValidation(t *testing.T) {
 		"relative url":     func(p *ServiceProbe) { p.URL = "/readyz" },
 		"file scheme":      func(p *ServiceProbe) { p.URL = "file:///etc/passwd" },
 		"credentials":      func(p *ServiceProbe) { p.URL = "https://user:pw@auth.example.test/" },
+		"query":            func(p *ServiceProbe) { p.URL = "https://auth.example.test/?token=secret" },
+		"empty query":      func(p *ServiceProbe) { p.URL = "https://auth.example.test/?" },
 		"fragment":         func(p *ServiceProbe) { p.URL = "https://auth.example.test/#x" },
 		"status too small": func(p *ServiceProbe) { p.ExpectStatus = []int{99} },
 		"status too large": func(p *ServiceProbe) { p.ExpectStatus = []int{600} },

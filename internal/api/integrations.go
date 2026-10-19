@@ -148,7 +148,11 @@ func buildIntegrations(in integrationInputs, now time.Time) []Integration {
 			agents.Detail += "; not reporting: " + names(staleNames, 4)
 		}
 		if len(noAgent) > 0 {
-			agents.Detail += fmt.Sprintf("; %d devices have no agent", len(noAgent))
+			unit := "devices have"
+			if len(noAgent) == 1 {
+				unit = "device has"
+			}
+			agents.Detail += fmt.Sprintf("; %d %s no agent", len(noAgent), unit)
 		}
 		agents.Detail += "."
 	}
@@ -158,11 +162,15 @@ func buildIntegrations(in integrationInputs, now time.Time) []Integration {
 	var probes, probesOK int
 	var probeBad []string
 	var probeLatest time.Time
+	probeStale := false
 	for _, service := range in.snapshot.Services {
 		if service.Health.Source != "http-probe" {
 			continue
 		}
 		probes++
+		if service.Freshness != "fresh" {
+			probeStale = true
+		}
 		if service.Health.State == "healthy" && service.Freshness == "fresh" {
 			probesOK++
 		} else {
@@ -176,7 +184,10 @@ func buildIntegrations(in integrationInputs, now time.Time) []Integration {
 	if probes == 0 {
 		probeItem.State, probeItem.Detail = integrationNotConfigured, "No service probes are configured."
 	} else {
-		probeItem.Freshness = freshnessOf(probeLatest, 90*time.Second, now)
+		probeItem.Freshness = "fresh"
+		if probeStale {
+			probeItem.Freshness = "stale"
+		}
 		probeItem.Detail = fmt.Sprintf("%d of %d services answering", probesOK, probes)
 		switch {
 		case probesOK == probes:
@@ -201,7 +212,11 @@ func buildIntegrations(in integrationInputs, now time.Time) []Integration {
 		var online int
 		var down []string
 		var observed time.Time
+		providerStale := false
 		for _, provider := range in.compute.Providers {
+			if provider.Freshness != "fresh" {
+				providerStale = true
+			}
 			if provider.State == compute.ProviderOnline && provider.Freshness == "fresh" {
 				online++
 			} else {
@@ -217,11 +232,9 @@ func buildIntegrations(in integrationInputs, now time.Time) []Integration {
 		}
 		total := len(in.compute.Providers)
 		openCode.ObservedAt = ptr(observed)
-		openCode.Freshness = freshnessOf(observed, 45*time.Second, now)
-		for _, provider := range in.compute.Providers {
-			if provider.Freshness == "stale" {
-				openCode.Freshness = "stale"
-			}
+		openCode.Freshness = "fresh"
+		if providerStale {
+			openCode.Freshness = "stale"
 		}
 		openCode.Detail = fmt.Sprintf("%d of %d servers reachable; %d running sessions", online, total, in.compute.ActiveJobs())
 		switch {

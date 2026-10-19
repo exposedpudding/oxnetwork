@@ -148,11 +148,7 @@ func buildIntegrations(in integrationInputs, now time.Time) []Integration {
 			agents.Detail += "; not reporting: " + names(staleNames, 4)
 		}
 		if len(noAgent) > 0 {
-			unit := "devices have"
-			if len(noAgent) == 1 {
-				unit = "device has"
-			}
-			agents.Detail += fmt.Sprintf("; %d %s no agent", len(noAgent), unit)
+			agents.Detail += fmt.Sprintf("; %d devices have no agent", len(noAgent))
 		}
 		agents.Detail += "."
 	}
@@ -162,15 +158,11 @@ func buildIntegrations(in integrationInputs, now time.Time) []Integration {
 	var probes, probesOK int
 	var probeBad []string
 	var probeLatest time.Time
-	probeStale := false
 	for _, service := range in.snapshot.Services {
 		if service.Health.Source != "http-probe" {
 			continue
 		}
 		probes++
-		if service.Freshness != "fresh" {
-			probeStale = true
-		}
 		if service.Health.State == "healthy" && service.Freshness == "fresh" {
 			probesOK++
 		} else {
@@ -184,10 +176,7 @@ func buildIntegrations(in integrationInputs, now time.Time) []Integration {
 	if probes == 0 {
 		probeItem.State, probeItem.Detail = integrationNotConfigured, "No service probes are configured."
 	} else {
-		probeItem.Freshness = "fresh"
-		if probeStale {
-			probeItem.Freshness = "stale"
-		}
+		probeItem.Freshness = freshnessOf(probeLatest, 90*time.Second, now)
 		probeItem.Detail = fmt.Sprintf("%d of %d services answering", probesOK, probes)
 		switch {
 		case probesOK == probes:
@@ -209,17 +198,18 @@ func buildIntegrations(in integrationInputs, now time.Time) []Integration {
 	if in.compute == nil || len(in.compute.Providers) == 0 {
 		openCode.State, openCode.Detail = integrationNotConfigured, "No OpenCode servers are configured."
 	} else {
-		var online int
+		var online, partial int
 		var down []string
 		var observed time.Time
-		providerStale := false
 		for _, provider := range in.compute.Providers {
-			if provider.Freshness != "fresh" {
-				providerStale = true
-			}
 			if provider.State == compute.ProviderOnline && provider.Freshness == "fresh" {
 				online++
 			} else {
+				// A degraded provider answers but could not return every session, so it is
+				// reachable yet not fully read.
+				if provider.State == compute.ProviderDegraded && provider.Freshness == "fresh" {
+					partial++
+				}
 				reason := provider.Name
 				if provider.Detail != "" {
 					reason += " (" + provider.Detail + ")"
@@ -232,15 +222,21 @@ func buildIntegrations(in integrationInputs, now time.Time) []Integration {
 		}
 		total := len(in.compute.Providers)
 		openCode.ObservedAt = ptr(observed)
-		openCode.Freshness = "fresh"
-		if providerStale {
-			openCode.Freshness = "stale"
+		openCode.Freshness = freshnessOf(observed, 45*time.Second, now)
+		for _, provider := range in.compute.Providers {
+			if provider.Freshness == "stale" {
+				openCode.Freshness = "stale"
+			}
 		}
-		openCode.Detail = fmt.Sprintf("%d of %d servers reachable; %d running sessions", online, total, in.compute.ActiveJobs())
+		if partial > 0 {
+			openCode.Detail = fmt.Sprintf("%d of %d servers fully read; running session count is incomplete", online, total)
+		} else {
+			openCode.Detail = fmt.Sprintf("%d of %d servers reachable; %d running sessions", online, total, in.compute.ActiveJobs())
+		}
 		switch {
 		case online == total:
 			openCode.State = integrationHealthy
-		case online == 0:
+		case online+partial == 0:
 			openCode.State = integrationUnhealthy
 		default:
 			openCode.State = integrationDegraded

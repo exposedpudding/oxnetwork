@@ -170,7 +170,7 @@ export type JobState = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelle
 /**
  * Agent work reported by a compute provider (ADR-017). Empty unless a provider such as an
  * OpenCode server is configured. `name` is the session title, truncated to 80 characters;
- * prompts, messages and file contents are never included.
+   * messages and file contents are never included. Titles can contain user text.
  */
 export interface Job {
   id: string;
@@ -196,7 +196,7 @@ export interface ComputeProvider {
   /** Address polled, without credentials. */
   endpoint: string;
   node_id?: string;
-  state: 'online' | 'offline';
+  state: 'online' | 'degraded' | 'offline';
   version?: string;
   active_sessions: number;
   total_sessions: number;

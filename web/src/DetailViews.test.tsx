@@ -16,7 +16,7 @@ describe('ComputeView with an OpenCode provider', () => {
   it('shows servers, real job counts and sessions, and never claims a queue', () => {
     const html = render({ summary: { ...summary, active_jobs: 1, jobs_source: 'opencode' }, workers: [worker], jobs: [running, idle], providers: [provider] })
     expect(html).toContain('OpenCode connected')
-    expect(html).toContain('1 of 1 OpenCode server is reachable')
+    expect(html).toContain('1 of 1 OpenCode server has complete session readings')
     expect(html).toContain('OX-C-01 OpenCode')
     expect(html).toContain('http://100.69.88.98:4096')
     expect(html).toContain('1 running / 2 total')
@@ -35,7 +35,7 @@ describe('ComputeView with an OpenCode provider', () => {
     const html = render({ summary: { ...summary, jobs_source: 'opencode' }, workers: [worker], jobs: [{ ...running, freshness: 'stale' }], providers: [offline] })
     expect(html).toContain('Offline')
     expect(html).toContain('connection refused')
-    expect(html).toContain('0 of 1 OpenCode server is reachable')
+    expect(html).toContain('0 of 1 OpenCode server has complete session readings')
     expect(html).toContain('Stale')
   })
 
@@ -44,6 +44,14 @@ describe('ComputeView with an OpenCode provider', () => {
     const filtered = render({ summary: { ...summary, jobs_source: 'opencode' }, workers: [worker], jobs: [running], providers: [provider] }, 'zzz')
     expect(filtered).toContain('No sessions match your search.')
     expect(filtered).not.toContain('Build the report')
+  })
+
+  it('does not show a partial session inventory as a complete active-job count', () => {
+    const partial: ComputeProvider = { ...provider, state: 'degraded', detail: 'project list unavailable', active_sessions: 0 }
+    const html = render({ summary: { ...summary, active_jobs: 0, jobs_source: 'opencode' }, workers: [worker], jobs: [{ ...running, freshness: 'stale' }], providers: [partial] })
+    expect(html).toContain('Incomplete')
+    expect(html).toContain('project list unavailable')
+    expect(html).toContain('Stale')
   })
 })
 

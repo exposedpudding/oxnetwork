@@ -20,22 +20,23 @@ export function ComputeView({ data, query, demoMode }: { data: ComputeData; quer
   const providers = data.providers ?? []
   const hasProvider = providers.length > 0
   const providersOnline = providers.filter(provider => provider.state === 'online' && provider.freshness === 'fresh').length
+  const providersIncomplete = providers.some(provider => provider.state === 'degraded')
   return <>
     <div className="page-heading"><div><p className="eyebrow">Command centre / Compute</p><h1>Compute</h1><p>Reported worker capacity and job activity.</p></div><span className="timestamp">{data.workers.length ? `Observed ${timeLabel(data.summary.observed_at)}` : 'No compute reports'}</span></div>
-    {demoMode ? <div className="demo-banner" role="status"><strong>Demo mode</strong><span>Capacity is simulated. No job provider or scheduler is connected.</span></div> : hasProvider ? <div className="demo-banner" role="status"><strong>OpenCode connected</strong><span>{providersOnline} of {providers.length} OpenCode {providers.length === 1 ? 'server is' : 'servers are'} reachable. Host capacity comes from the host agents; vCPU use per session is not measured. Only session metadata is read, never prompts or files.</span></div> : <div className="demo-banner" role="status"><strong>Compute not connected</strong><span>Tailscale reports device identity only. CPU, RAM, worker capacity and jobs are not available from this source.</span></div>}
+    {demoMode ? <div className="demo-banner" role="status"><strong>Demo mode</strong><span>Capacity is simulated. No job provider or scheduler is connected.</span></div> : hasProvider ? <div className="demo-banner" role="status"><strong>OpenCode connected</strong><span>{providersOnline} of {providers.length} OpenCode {providers.length === 1 ? 'server has' : 'servers have'} complete session readings. Host capacity comes from the host agents; vCPU use per session is not measured. Only session metadata is read; titles can contain user text, while messages and files are not read.</span></div> : <div className="demo-banner" role="status"><strong>Compute not connected</strong><span>Tailscale reports device identity only. CPU, RAM, worker capacity and jobs are not available from this source.</span></div>}
     {data.workers.length > 0 && data.summary.freshness !== 'fresh' && <div className="compute-notice" role="status">Worker capacity is {data.summary.freshness}; it may no longer be available.</div>}
     <section aria-label="Compute summary" className="ox-grid compute-summary">
       <StatCard label="Reported capacity" value={data.workers.length ? `${data.summary.total_vcpu} vCPU` : 'Not reported'} detail={data.workers.length ? data.summary.freshness === 'fresh' ? 'Current worker reports' : 'Includes stale worker reports' : 'No compute provider connected'} />
       <StatCard label="Workers" value={data.workers.length} detail={`${data.workers.filter(worker => worker.freshness === 'fresh' && worker.state === 'online').length} online and fresh`} />
-      <StatCard label="Active jobs" value={hasProvider && data.summary.jobs_source ? data.summary.active_jobs : 'Unavailable'} detail={hasProvider ? 'Running OpenCode sessions on reachable servers' : 'No job provider connected'} />
+      <StatCard label="Active jobs" value={hasProvider && data.summary.jobs_source ? providersIncomplete ? 'Incomplete' : data.summary.active_jobs : 'Unavailable'} detail={hasProvider ? providersIncomplete ? 'A server could not return a complete session list' : 'Running OpenCode sessions on reachable servers' : 'No job provider connected'} />
       <StatCard label="Queued jobs" value={hasProvider ? 'Not tracked' : 'Unavailable'} detail={hasProvider ? 'OpenCode has no job queue' : 'No job provider connected'} />
     </section>
     {hasProvider && <Card title="Compute providers" className="compute-section">
       <DataTable<ComputeProvider> caption="Compute providers" rows={providers} rowKey={provider => provider.id} columns={[
         { key: 'name', header: 'Server', render: provider => <>{provider.name}<small className="auto-sub">{provider.endpoint}</small></> },
-        { key: 'state', header: 'State', render: provider => <><StatusChip status={provider.freshness === 'stale' ? 'stale' : provider.state}>{provider.freshness === 'stale' ? 'Stale' : provider.state === 'online' ? 'Online' : 'Offline'}</StatusChip>{provider.detail && <small className="auto-sub">{provider.detail}</small>}</> },
+        { key: 'state', header: 'State', render: provider => <><StatusChip status={provider.freshness === 'stale' ? 'stale' : provider.state}>{provider.freshness === 'stale' ? 'Stale' : provider.state === 'online' ? 'Online' : provider.state === 'degraded' ? 'Partial' : 'Offline'}</StatusChip>{provider.detail && <small className="auto-sub">{provider.detail}</small>}</> },
         { key: 'version', header: 'Version', render: provider => provider.version ?? '—' },
-        { key: 'sessions', header: 'Sessions', render: provider => `${provider.active_sessions} running / ${provider.total_sessions} total`, align: 'right' },
+        { key: 'sessions', header: 'Sessions', render: provider => provider.state === 'degraded' ? 'Incomplete' : `${provider.active_sessions} running / ${provider.total_sessions} total`, align: 'right' },
         { key: 'observed', header: 'Last observed', render: provider => <time dateTime={provider.observed_at}>{timeLabel(provider.observed_at)}</time> }
       ]} />
     </Card>}

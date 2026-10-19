@@ -8,8 +8,9 @@ import "time"
 
 // ProviderState is the reachability of one compute provider instance.
 const (
-	ProviderOnline  = "online"
-	ProviderOffline = "offline"
+	ProviderOnline   = "online"
+	ProviderDegraded = "degraded"
+	ProviderOffline  = "offline"
 )
 
 // JobState values. Sessions of an interactive agent server are not batch jobs, so
@@ -76,7 +77,7 @@ func (s State) ActiveJobs() int {
 	}
 	count := 0
 	for _, job := range s.Jobs {
-		if job.State == JobRunning && online[job.ProviderID] {
+		if job.State == JobRunning && job.Freshness == "fresh" && online[job.ProviderID] {
 			count++
 		}
 	}

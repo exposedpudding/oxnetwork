@@ -191,3 +191,19 @@ Record material decisions here. Do not rewrite history; append superseding decis
 **Reason:** Milestone 8 asks that the Compute page reflect real OpenCode worker and job state without giving the dashboard control over agents. Reading only metadata keeps the privacy and security surface small, and reading every project is the difference between showing real activity and showing nothing.
 
 **Verification:** `go test -race` with a fake server that enforces the same directory scoping; the adapter run against the real server on OX-C-01 including a deliberately busy session in a non-default project (reported `running`, active 1 of 12), after which the test session was aborted and deleted; Compose merge validated with the Home GW overlays; the Compute page tested with and without a provider.
+
+## ADR-018 - Automation run retention
+
+**Status:** Implemented by Claude Code on branch `claude/run-retention` on 19 October 2026 at the owner's request ("automation cleanup/retention"). Awaiting Codex review; not deployed.
+
+**Decision:**
+
+- **What is trimmed.** Finished workflow runs and their step results (`workflow_runs`, `workflow_run_steps`), the only unbounded growth in the automation tables. A run is removed only when it is finished (`succeeded`, `failed`, `cancelled`), started more than the retention window ago, and is not one of the newest 20 finished runs of its workflow. Queued and running rows are never touched, however old.
+- **Window.** `automation_run_retention_days` in the server config; unset means 90; allowed range 7 to 3650 (no "keep forever" value: use a long window). The newest-20 floor means a rarely run workflow keeps its history even when every run is older than the window.
+- **Audit is not pruned.** `audit_events` is append-only by design (database triggers abort updates and deletes) and is the record of who did what. Each trimming appends one `workflow.runs.pruned` event (count, cutoff, floor); an empty trimming writes nothing. A bounded audit retention would need an explicit, owner-approved archive step and is not decided here.
+- **When.** The scheduler trims at startup and then at most every 6 hours, inside one transaction (steps first, then runs, then the audit event). A failure is logged and retried at the next interval; it never blocks scheduling.
+- **Precision.** `started_at` is RFC3339Nano in UTC, which sorts correctly as text except within the same second, so the cutoff can be off by under a second. That does not matter for a window of days.
+
+**Reason:** Cron workflows write a run and several step rows every few minutes; without a bound the database, backups (ADR-016) and the run list grow without limit. Keeping a per-workflow floor and never touching audit keeps the history that matters for review.
+
+**Verification:** `go test -race` covers the floor per workflow, old runs kept for quiet workflows, active runs kept, steps removed with their run (no orphans), one audit event per effective trimming and none for an empty one, audit rows only ever added, once-per-interval scheduling, and config bounds.

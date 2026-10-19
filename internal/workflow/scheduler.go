@@ -19,7 +19,11 @@ type Scheduler struct {
 	Inventory Inventory
 	Log       *slog.Logger
 	Interval  time.Duration
+	// RetentionDays is how long finished runs are kept (see PruneRuns). Zero means
+	// DefaultRunRetentionDays.
+	RetentionDays int
 
+	lastPrune  time.Time
 	lastMinute time.Time
 	since      map[string]time.Time
 	fired      map[string]bool
@@ -49,8 +53,29 @@ func (s *Scheduler) Run(ctx context.Context) {
 	}
 }
 
+// prune trims old finished runs at most once every pruneEvery. A failure is logged and
+// retried on the next interval; it never blocks scheduling.
+func (s *Scheduler) prune(ctx context.Context, now time.Time) {
+	if !s.lastPrune.IsZero() && now.Sub(s.lastPrune) < pruneEvery {
+		return
+	}
+	s.lastPrune = now
+	days := s.RetentionDays
+	if days <= 0 {
+		days = DefaultRunRetentionDays
+	}
+	deleted, err := s.Runner.Store.PruneRuns(ctx, now.AddDate(0, 0, -days), KeepRunsPerWorkflow)
+	switch {
+	case err != nil:
+		s.log("run retention failed", "error", err)
+	case deleted > 0:
+		s.log("old workflow runs removed", "deleted", deleted, "retention_days", days)
+	}
+}
+
 // Tick evaluates every enabled workflow once for the given instant.
 func (s *Scheduler) Tick(ctx context.Context, now time.Time) {
+	s.prune(ctx, now)
 	workflows, err := s.Runner.Store.ListWorkflows(ctx)
 	if err != nil {
 		s.log("scheduler could not list workflows", "error", err)

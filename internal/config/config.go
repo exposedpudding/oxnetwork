@@ -49,6 +49,9 @@ type Config struct {
 	// OpenCodeServers are read-only compute providers (ADR-017).
 	OpenCodeServers             []OpenCodeServer `yaml:"opencode_servers"`
 	OpenCodePollIntervalSeconds int              `yaml:"opencode_poll_interval_seconds"`
+	// AutomationRunRetentionDays is how long finished workflow runs are kept. Zero uses
+	// the default of 90 days. The audit log is never pruned.
+	AutomationRunRetentionDays int `yaml:"automation_run_retention_days"`
 }
 
 // OpenCodeServer names an `opencode serve` instance to read worker health and
@@ -221,6 +224,9 @@ func (c Config) Validate() error {
 	if len(c.ServiceProbes) > 0 && c.Features.DemoProvider {
 		return errors.New("service probes require live inventory")
 	}
+	if err := c.validateRetention(); err != nil {
+		return err
+	}
 	if err := c.validateProbes(); err != nil {
 		return err
 	}
@@ -254,6 +260,15 @@ func (c Config) Validate() error {
 		if public.Path != "" && public.Path != "/" {
 			return errors.New("OIDC public_url must be an origin without a path")
 		}
+	}
+	return nil
+}
+
+// validateRetention rejects retention windows that are too short to be useful or so
+// long that they amount to "never" (use a long window instead of an unbounded one).
+func (c Config) validateRetention() error {
+	if c.AutomationRunRetentionDays != 0 && (c.AutomationRunRetentionDays < 7 || c.AutomationRunRetentionDays > 3650) {
+		return errors.New("automation_run_retention_days must be between 7 and 3650")
 	}
 	return nil
 }

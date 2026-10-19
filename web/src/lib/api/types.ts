@@ -122,6 +122,10 @@ export interface Service {
   health: Health;
   freshness?: NodeFreshness;
   simulated?: boolean;
+  /** Address a probe checked (query string removed); absent for services that are not probed. */
+  endpoint?: string;
+  /** Short probe result, e.g. "HTTP 204 in 41 ms" or "no response within 3s". */
+  detail?: string;
 }
 
 export interface Activity {

@@ -405,6 +405,7 @@ main {
   color:#91a3ba;
   margin-top:3px
 }
+.row small { overflow-wrap:anywhere }
 .row time {
   font-size:11px;
   color:#91a3ba;

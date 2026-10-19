@@ -20,6 +20,7 @@ import (
 	"github.com/exposedpudding/oxnetwork/internal/integrations/demo"
 	"github.com/exposedpudding/oxnetwork/internal/integrations/tailscale"
 	"github.com/exposedpudding/oxnetwork/internal/inventory"
+	"github.com/exposedpudding/oxnetwork/internal/probe"
 	"github.com/exposedpudding/oxnetwork/internal/workflow"
 )
 
@@ -55,6 +56,7 @@ func main() {
 	defer database.Close()
 	repo := inventory.Repository{DB: database}
 	var refresh func(context.Context, time.Time) error
+	var prober *probe.Prober
 	interval := 30 * time.Second
 	mode := "demo"
 	if cfg.Features.DemoProvider {
@@ -103,10 +105,23 @@ func main() {
 				os.Exit(1)
 			}
 		}
+		if len(cfg.ServiceProbes) > 0 {
+			prober = &probe.Prober{Probes: cfg.ServiceProbes, Interval: time.Duration(cfg.ProbeInterval()) * time.Second, Log: log}
+			// First results are ready before the first inventory publish.
+			probeCtx, probeCancel := context.WithTimeout(context.Background(), 15*time.Second)
+			prober.ProbeAll(probeCtx)
+			probeCancel()
+			log.Info("service probes configured", "count", len(cfg.ServiceProbes), "interval_seconds", cfg.ProbeInterval())
+		}
 		refresh = func(ctx context.Context, now time.Time) error {
 			snapshot, err := client.Snapshot(ctx, now)
 			if err != nil {
 				return err
+			}
+			// ReplaceSnapshot deletes every service row, so probe results must be
+			// part of the snapshot it stores (ADR-014).
+			if prober != nil {
+				snapshot.Services = append(snapshot.Services, prober.Services(now)...)
 			}
 			return repo.ReplaceSnapshot(ctx, snapshot)
 		}
@@ -167,6 +182,15 @@ func main() {
 	runner.BaseContext = ctx
 	scheduler := &workflow.Scheduler{Runner: runner, Inventory: repo, Log: log}
 	go scheduler.Run(ctx)
+	if prober != nil {
+		// Publish each probe round on its own so service health stays current even
+		// while the Tailscale API is unreachable. Upsert never deletes other rows.
+		go prober.Run(ctx, func(ctx context.Context, services []domain.Service) {
+			if err := repo.UpsertSnapshot(ctx, domain.Snapshot{Services: services}); err != nil && ctx.Err() == nil {
+				log.Error("service probe publish failed", "error", err)
+			}
+		})
+	}
 	go func() {
 		<-ctx.Done()
 		runner.Wait()

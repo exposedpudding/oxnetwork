@@ -644,6 +644,8 @@ components:
         health: { $ref: '#/components/schemas/Health' }
         freshness: { type: string, enum: [fresh, stale, unknown] }
         simulated: { type: boolean }
+        endpoint: { type: string, description: 'Address a probe checked, query string removed. Absent for services that are not probed.' }
+        detail: { type: string, description: 'Short probe result, e.g. "HTTP 200 in 41 ms", "HTTP 502 (expected 200/204)", "no response within 3s". Absent when not probed.' }
     Activity:
       type: object
       required: [id, title, detail, state, occurred_at, simulated]

@@ -20,6 +20,7 @@ import type {
   AutomationSummary,
   ComputeProvider,
   Integration,
+  NodeContainers,
   WorkflowInput,
   WorkflowRecord,
   WorkflowRun,
@@ -128,6 +129,8 @@ export function createApiClient(options: ClientOptions = {}) {
     listWorkers: (o?: RequestOptions) => request<ListResponse<Worker>>('GET', '/compute/workers', o),
     listJobs: (o?: RequestOptions) => request<ListResponse<Job>>('GET', '/jobs', o),
     listComputeProviders: (o?: RequestOptions) => request<ListResponse<ComputeProvider>>('GET', '/compute/providers', o),
+    getNodeContainers: (nodeId: string, o?: RequestOptions) =>
+      request<NodeContainers>('GET', `/nodes/${id(nodeId)}/containers`, o),
     listIntegrations: (o?: RequestOptions) => request<ListResponse<Integration>>('GET', '/integrations', o),
     getNetworkGraph: (o?: RequestOptions) => request<NetworkGraph>('GET', '/network/graph', o),
     listConnections: (o?: RequestOptions) => request<ListResponse<GraphEdge>>('GET', '/network/connections', o),

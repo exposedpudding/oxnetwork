@@ -34,8 +34,11 @@ type Server struct {
 	AuthEnabled        bool
 	SourceMode         string
 	HostAgentTokensDir string
-	Log                *slog.Logger
-	Now                func() time.Time
+	// DockerAgentTokensDir holds one token file per node for the opt-in Docker
+	// reporter (ADR-019). It is separate from HostAgentTokensDir on purpose.
+	DockerAgentTokensDir string
+	Log                  *slog.Logger
+	Now                  func() time.Time
 	// Runner enables the automations endpoints when set. MutationsAllowed is
 	// true only when requests are authenticated or the server is bound to
 	// loopback; see docs/DECISIONS.md ADR-013.
@@ -57,6 +60,8 @@ func (s *Server) sourceMode() string {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /internal/v1/host-report/{id}", s.hostReport)
+	mux.HandleFunc("POST /internal/v1/docker-report/{id}", s.dockerReport)
+	mux.HandleFunc("GET /api/v1/nodes/{id}/containers", s.nodeContainers)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})

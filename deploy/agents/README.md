@@ -18,6 +18,8 @@ The script refuses to overwrite an existing credential. Copy that one node's tok
 
 Agents use `https://oxnet.work/internal/v1/host-report/tailscale-NODEID` over the private Tailscale path. The server accepts only a matching bearer token and a known Tailscale inventory node. Unauthenticated requests return 401. Home GW's agent uses `http://127.0.0.1:8090` instead of the network path.
 
+Container inventory is a separate, opt-in program with its own token and unit; see [../../docs/DOCKER_INVENTORY.md](../../docs/DOCKER_INVENTORY.md). The host agent still has no Docker access.
+
 ## Build
 
 From the repository root with Go 1.27 and vendored dependencies:

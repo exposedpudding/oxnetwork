@@ -4,7 +4,7 @@ import { MetricBar } from './components/MetricBar'
 import { EmptyState } from './components/States'
 import { StatusChip } from './components/Status'
 import type { loadCompute, loadNode } from './api'
-import type { ComputeProvider, Job, Worker } from './lib/api/types'
+import type { ComputeProvider, Container, Job, NodeContainers, Worker } from './lib/api/types'
 
 type ComputeData = Awaited<ReturnType<typeof loadCompute>>
 type NodeData = Awaited<ReturnType<typeof loadNode>>
@@ -62,6 +62,33 @@ export function ComputeView({ data, query, demoMode }: { data: ComputeData; quer
   </>
 }
 
+function containerStatus(container: Container, stale: boolean) {
+  if (stale) return 'stale' as const
+  if (container.health === 'unhealthy') return 'unhealthy' as const
+  if (container.state === 'running') return container.health === 'healthy' ? 'healthy' as const : 'running' as const
+  if (container.state === 'restarting') return 'degraded' as const
+  if (container.state === 'paused') return 'unknown' as const
+  return 'offline' as const
+}
+
+export function ContainersCard({ containers, simulated }: { containers: NodeContainers | null | undefined; simulated: boolean }) {
+  if (simulated) return <Card title="Containers" className="compute-section"><p className="muted-copy">Demo nodes do not report containers.</p></Card>
+  if (!containers) return <Card title="Containers" className="compute-section"><EmptyState title="Containers unavailable" description="The container list could not be read just now." /></Card>
+  if (!containers.reported) return <Card title="Containers" className="compute-section"><EmptyState title="No container report" description="This host has not sent a container list. Install the optional Docker reporter to see containers here." /></Card>
+  const stale = containers.freshness === 'stale'
+  return <Card title="Containers" className="compute-section">
+    {stale && <div className="compute-notice" role="status">The last container report is out of date{containers.reported_at ? ` (${timeLabel(containers.reported_at)})` : ''}; these containers may no longer be running.</div>}
+    {containers.items.length ? <DataTable<Container> caption="Containers" rows={containers.items} rowKey={container => container.id} columns={[
+      { key: 'name', header: 'Container', render: container => <>{container.name}{container.compose_project && <small className="auto-sub">{container.compose_project}{container.compose_service ? ` / ${container.compose_service}` : ''}</small>}</> },
+      { key: 'image', header: 'Image', render: container => container.image },
+      { key: 'state', header: 'State', render: container => <><StatusChip status={containerStatus(container, stale)}>{stale ? 'Stale' : container.health === 'unhealthy' ? 'Unhealthy' : container.state === 'running' && container.health === 'healthy' ? 'Healthy' : container.state[0].toUpperCase() + container.state.slice(1)}</StatusChip><small className="auto-sub">{container.status}</small></> },
+      { key: 'ports', header: 'Published ports', render: container => container.ports.length ? container.ports.join(', ') : '—' },
+      { key: 'created', header: 'Created', render: container => <time dateTime={container.created_at}>{timeLabel(container.created_at)}</time> }
+    ]} /> : <EmptyState title="No containers" description="The reporter sees no containers on this host." />}
+    <p className="muted-copy">Only name, image, state and published ports are read. Environment variables, mounts and commands are never collected, and no container action is available.</p>
+  </Card>
+}
+
 export function NodeDetailView({ node }: { node: NodeData }) {
   const freshness = node.freshness ?? 'unknown'
   return <>
@@ -78,6 +105,7 @@ export function NodeDetailView({ node }: { node: NodeData }) {
       <Card title="Capabilities">{node.capabilities.length ? <ul className="capability-list">{node.capabilities.map(capability => <li key={capability}>{capability}</li>)}</ul> : <EmptyState title="No capabilities reported" />}</Card>
     </div>
     {!node.simulated && <Card title="Tailscale identity" className="compute-section"><p className="muted-copy">Addresses: {node.addresses?.length ? node.addresses.join(', ') : 'Not reported'} · Last seen: {node.last_seen ? timeLabel(node.last_seen) : 'Not reported'}. Last seen is a Tailscale control-plane value, not a health check.</p></Card>}
-    <Card title="More from this node" className="compute-section"><p className="muted-copy">Node-specific containers, jobs and logs require read-only integrations. Recorded relationships are on the <a className="inline-link" href="/network">Network page</a>. Node actions are unavailable.</p></Card>
+    <ContainersCard containers={node.containers} simulated={Boolean(node.simulated)} />
+    <Card title="More from this node" className="compute-section"><p className="muted-copy">Node-specific jobs and logs require read-only integrations. Recorded relationships are on the <a className="inline-link" href="/network">Network page</a>. Node actions are unavailable.</p></Card>
   </>
 }

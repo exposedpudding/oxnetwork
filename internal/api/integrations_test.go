@@ -44,8 +44,8 @@ func liveInputs() integrationInputs {
 func TestInventoryAndHostAgentStates(t *testing.T) {
 	items := buildIntegrations(liveInputs(), integrationNow)
 	got := byID(items)
-	if len(items) != 6 {
-		t.Fatalf("expected six integrations, got %d", len(items))
+	if len(items) != 7 {
+		t.Fatalf("expected seven integrations, got %d", len(items))
 	}
 	inv := got["inventory"]
 	if inv.State != integrationHealthy || inv.Freshness != "fresh" || inv.Detail != "4 devices; last refresh 25 seconds ago." || inv.ObservedAt == nil {
@@ -184,6 +184,27 @@ func TestOpenCodeAutomationsAndSignInStates(t *testing.T) {
 	in.mutations = false
 	if got := byID(buildIntegrations(in, integrationNow))["authentication"]; !strings.Contains(got.Detail, "changes are disabled") {
 		t.Fatalf("no changes: %+v", got)
+	}
+}
+
+func TestDockerReporterStates(t *testing.T) {
+	in := liveInputs()
+	if got := byID(buildIntegrations(in, integrationNow))["docker"]; got.State != integrationNotConfigured {
+		t.Fatalf("no reporter: %+v", got)
+	}
+	fresh := inventory.ContainerNodeSummary{NodeID: "tailscale-1", ReceivedAt: integrationNow.Add(-20 * time.Second), Count: 9, Running: 7}
+	silent := inventory.ContainerNodeSummary{NodeID: "tailscale-2", ReceivedAt: integrationNow.Add(-10 * time.Minute), Count: 3, Running: 3}
+	in.containers = []inventory.ContainerNodeSummary{fresh}
+	if got := byID(buildIntegrations(in, integrationNow))["docker"]; got.State != integrationHealthy || got.Freshness != "fresh" || got.Detail != "1 of 1 reporting nodes are current; 9 containers, 7 running." {
+		t.Fatalf("healthy: %+v", got)
+	}
+	in.containers = []inventory.ContainerNodeSummary{fresh, silent}
+	if got := byID(buildIntegrations(in, integrationNow))["docker"]; got.State != integrationDegraded || !strings.Contains(got.Detail, "not reporting: tailscale-2") {
+		t.Fatalf("one silent node: %+v", got)
+	}
+	in.containers = []inventory.ContainerNodeSummary{silent}
+	if got := byID(buildIntegrations(in, integrationNow))["docker"]; got.State != integrationUnhealthy || got.Freshness != "stale" {
+		t.Fatalf("all silent: %+v", got)
 	}
 }
 

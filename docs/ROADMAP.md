@@ -88,8 +88,8 @@ Acceptance met for Home GW, OX-C-01, the OVH VPS and three Windows 11 PCs (DESKT
 - [x] Opt-in Tailscale read-only device discovery adapter (Home GW active with OAuth `devices:core:read`).
 - [x] Verified service health: fixed, operator-configured read-only HTTP probes, merged into the inventory snapshot (ADR-014; branch `claude/service-health`, awaiting Codex review and deployment).
 - [ ] Reconcile discovered tailnet nodes with existing inventory.
-- [ ] Docker inventory through agent (design options and a recommendation are in ADR-015, status Proposed).
-- [ ] Real containers on Node Detail.
+- [x] Docker inventory through a single-purpose reporter (ADR-019, built on ADR-015; opt-in per host, branch `claude/docker-inventory`, awaiting Codex confirmation).
+- [x] Real containers on Node Detail (Containers card; shows reported, stale, empty and never-reported states).
 - [x] Integration health UI: `GET /api/v1/integrations` and an Integrations page (branch `claude/integration-health`, stacked on `claude/opencode-adapter`, awaiting Codex review).
 
 Acceptance: live private nodes and containers are visible; provider outage degrades gracefully.

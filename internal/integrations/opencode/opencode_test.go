@@ -244,7 +244,7 @@ func TestSessionsAppearingInTwoProjectsAreCountedOnce(t *testing.T) {
 	}
 }
 
-func TestOneUnreadableProjectDoesNotHideTheOthers(t *testing.T) {
+func TestOneUnreadableProjectDoesNotProduceACompleteCount(t *testing.T) {
 	f := newFake(t)
 	f.projects = `[{"id":"a","worktree":"/w/a"},{"id":"bad","worktree":"/w/bad"}]`
 	f.dirs[""] = dirData{sessions: twoSessions}
@@ -253,20 +253,39 @@ func TestOneUnreadableProjectDoesNotHideTheOthers(t *testing.T) {
 	p := &Poller{Clients: []Client{f.client("s")}, Interval: time.Second}
 	p.PollAll(context.Background())
 	state := p.State(time.Now())
-	if state.Providers[0].State != compute.ProviderOnline || state.Providers[0].Detail != "1 of 3 projects could not be read" || len(state.Jobs) != 3 || state.Providers[0].ActiveSessions != 1 {
+	if state.Providers[0].State != compute.ProviderDegraded || state.Providers[0].Detail != "1 of 3 projects could not be read" || len(state.Jobs) != 0 || state.ActiveJobs() != 0 {
 		t.Fatalf("state: %+v", state)
 	}
 }
 
-func TestProjectListFailureFallsBackToTheDefaultProject(t *testing.T) {
+func TestProjectListFailureDoesNotPresentTheDefaultAsComplete(t *testing.T) {
 	f := newFake(t)
 	f.projects = `<html>nope</html>`
 	f.dirs[""] = dirData{sessions: twoSessions, status: `{"ses_a":{"type":"busy"}}`}
 	p := &Poller{Clients: []Client{f.client("s")}, Interval: time.Second}
 	p.PollAll(context.Background())
 	state := p.State(time.Now())
-	if !strings.HasPrefix(state.Providers[0].Detail, "project list unavailable") || len(state.Jobs) != 2 || state.Providers[0].ActiveSessions != 1 {
+	if state.Providers[0].State != compute.ProviderDegraded || !strings.HasPrefix(state.Providers[0].Detail, "project list unavailable") || len(state.Jobs) != 0 || state.ActiveJobs() != 0 {
 		t.Fatalf("state: %+v", state)
+	}
+}
+
+func TestProjectListFailurePreservesKnownOtherProjectAsStale(t *testing.T) {
+	f := newFake(t)
+	f.projects = `[{"id":"scratch","worktree":"/w/scratch"}]`
+	f.dirs["/w/scratch"] = dirData{sessions: otherProjectSession, status: `{"ses_scratch":{"type":"busy"}}`}
+	clock := time.Date(2026, 10, 19, 1, 0, 0, 0, time.UTC)
+	p := &Poller{Clients: []Client{f.client("s")}, Interval: 10 * time.Second, Now: func() time.Time { return clock }}
+	p.PollAll(context.Background())
+	if got := p.State(clock).ActiveJobs(); got != 1 {
+		t.Fatalf("initial complete reading: %d active jobs", got)
+	}
+	f.set(func(f *fakeServer) { f.projects = `<html>nope</html>` })
+	clock = clock.Add(10 * time.Second)
+	p.PollAll(context.Background())
+	state := p.State(clock)
+	if state.Providers[0].State != compute.ProviderDegraded || len(state.Jobs) != 1 || state.Jobs[0].Freshness != "stale" || state.ActiveJobs() != 0 {
+		t.Fatalf("incomplete reading must not erase or count prior work: %+v", state)
 	}
 }
 
@@ -284,7 +303,7 @@ func TestOfflineServerKeepsLastJobsAsStaleAndStopsCountingThemActive(t *testing.
 	clock = t0.Add(10 * time.Second)
 	p.PollAll(context.Background())
 	state := p.State(clock)
-	if state.Providers[0].State != compute.ProviderOffline || len(state.Jobs) != 2 || state.Jobs[0].Freshness != "fresh" {
+	if state.Providers[0].State != compute.ProviderOffline || len(state.Jobs) != 2 || state.Jobs[0].Freshness != "stale" {
 		t.Fatalf("just after going offline: %+v", state)
 	}
 	if state.ActiveJobs() != 0 {
@@ -306,7 +325,7 @@ func TestEveryProjectUnreadableKeepsThePreviousListAndSaysSo(t *testing.T) {
 	clock = clock.Add(10 * time.Second)
 	p.PollAll(context.Background())
 	state := p.State(clock)
-	if state.Providers[0].State != compute.ProviderOnline || state.Providers[0].Detail != "session list unavailable" || len(state.Jobs) != 2 || state.Providers[0].TotalSessions != 2 {
+	if state.Providers[0].State != compute.ProviderDegraded || state.Providers[0].Detail != "session list unavailable" || len(state.Jobs) != 2 || state.Jobs[0].Freshness != "stale" || state.Providers[0].TotalSessions != 2 || state.ActiveJobs() != 0 {
 		t.Fatalf("state: %+v", state)
 	}
 }

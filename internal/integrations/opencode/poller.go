@@ -127,6 +127,11 @@ func (p *Poller) poll(ctx context.Context, client Client) {
 		if len(problems) > 0 {
 			provider.Detail = strings.Join(problems, "; ")
 		}
+		if !jobsOK {
+			// A partial read cannot establish a complete active-session count.
+			// Keep the previous full list, but mark it stale immediately.
+			provider.State = compute.ProviderDegraded
+		}
 		if jobsOK {
 			provider.TotalSessions = len(jobs)
 			for _, job := range jobs {
@@ -164,11 +169,13 @@ func readProjects(ctx context.Context, client Client, at time.Time) ([]compute.J
 	var problems []string
 	directories := []string{""} // "" is the server's default project
 	projects, err := client.Projects(ctx)
+	complete := err == nil
 	if err != nil {
 		problems = append(problems, "project list unavailable: "+err.Error())
 	} else {
 		if len(projects) > maxProjects {
 			problems = append(problems, fmt.Sprintf("only the first %d projects are read", maxProjects))
+			complete = false
 			projects = projects[:maxProjects]
 		}
 		directories = append(directories, projects...)
@@ -192,6 +199,7 @@ func readProjects(ctx context.Context, client Client, at time.Time) ([]compute.J
 		}
 	}
 	if failed > 0 {
+		complete = false
 		if read == 0 {
 			problems = append(problems, "session list unavailable")
 		} else {
@@ -202,7 +210,7 @@ func readProjects(ctx context.Context, client Client, at time.Time) ([]compute.J
 		sortJobs(jobs)
 		jobs = jobs[:maxJobsPerProvider]
 	}
-	return jobs, problems, read > 0
+	return jobs, problems, complete && read > 0
 }
 
 func sortJobs(jobs []compute.Job) {
@@ -256,7 +264,7 @@ func (p *Poller) State(now time.Time) compute.State {
 		}
 		state.Providers = append(state.Providers, provider)
 		jobsFreshness := "fresh"
-		if r.jobsAt.IsZero() || now.Sub(r.jobsAt) > stale {
+		if provider.State != compute.ProviderOnline || r.jobsAt.IsZero() || now.Sub(r.jobsAt) > stale {
 			jobsFreshness = "stale"
 		}
 		for _, job := range r.jobs {

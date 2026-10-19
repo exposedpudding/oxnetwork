@@ -45,6 +45,10 @@ Codex should assign one Claude work package at a time and integrate only after t
 
 **For Codex when you return:** (1) review the staleness thresholds (180 s Tailscale, 90 s agents/probes, 45 s OpenCode), which mirror the existing polling intervals; (2) the page does not yet show per-host agent detail or Docker, which are separate milestones. Merge order: #2, #3, #5, then this PR.
 
+## Windows agent on DESKTOP-HHBRUDD (19 October 2026)
+
+Root cause confirmed and fixed: the agent had been installed from inside a packaged app, so its files and Run entry lived in that app's private store and vanished from the real profile. It was reinstalled from the real desktop shell and reports again. **Open:** confirm it starts by itself at the next sign-in. Details in `deploy/agents/README.md`. Lesson: install agents only from an ordinary PowerShell window, never from inside another app's terminal.
+
 ## Docker container inventory (Milestone 6)
 
 **Status (19 October 2026): implemented by Claude Code on branch `claude/docker-inventory` at the owner's request; awaiting Codex confirmation. Not merged, not deployed. Nothing runs unless a host opts in.** See ADR-019 (it implements ADR-015, but as one reporter program instead of a bridge plus the collector) and [docs/DOCKER_INVENTORY.md](docs/DOCKER_INVENTORY.md). What exists: `cmd/docker-reporter` (one request on the Docker socket: `GET /containers/json`), `POST /internal/v1/docker-report/{id}` with its own per-node token directory, migration 009, `GET /api/v1/nodes/{id}/containers`, a Containers card on Node Detail, a Docker line on the Integrations page, and the systemd unit, install script, token script and Compose overlay under `deploy/`.

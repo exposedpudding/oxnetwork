@@ -17,19 +17,19 @@ It never requests messages, parts, file contents, diffs, permissions, configurat
 
 ## The one thing that is easy to get wrong: projects
 
-OpenCode scopes the session list **and** the status map to a *project directory*. A request without `directory` only sees the server's default project. This was found by testing against the real server: a session that was visibly busy in the `scratch` project did not appear in `/session/status` at all until the request named that project's directory, and the unscoped list did not contain it either. An adapter that skips this reports "0 active" while agents work. So each poll reads `/project`, then reads the list and status once for the default project and once for every project directory (at most 20), and merges the results by session id. If the project list cannot be read it falls back to the default project and says so in `detail`. If some projects fail, the rest are still shown and `detail` says how many could not be read.
+OpenCode scopes the session list **and** the status map to a *project directory*. A request without `directory` only sees the server's default project. This was found by testing against the real server: a session that was visibly busy in the `scratch` project did not appear in `/session/status` at all until the request named that project's directory, and the unscoped list did not contain it either. An adapter that skips this reports "0 active" while agents work. So each poll reads `/project`, then reads the list and status once for the default project and once for every project directory (at most 20), and merges the results by session id. If the project list or any project cannot be read, the provider is `degraded`; the last complete session list is retained as stale, and active-job totals are labeled incomplete rather than presenting a partial read as a complete count.
 
 ## Mapping onto oxnet.work
 
 | OpenCode | oxnet.work | Notes |
 |---|---|---|
-| a configured `opencode serve` instance | **provider** (`/api/v1/compute/providers`) | `online` only if `/global/health` answers `healthy: true`; `offline` carries the reason (`connection refused`, `no response within 5s`, `the server rejected the credentials`, `the server reports it is not healthy`) |
+| a configured `opencode serve` instance | **provider** (`/api/v1/compute/providers`) | `online` only if `/global/health` answers `healthy: true` and the session inventory is complete; `degraded` means the server answered but a project read failed; `offline` carries reachability or health failures |
 | the machine it runs on | `node_id` (optional, `tailscale-<id>`) | links a provider to an inventory node; host CPU and RAM still come from the host agent |
 | a root session | **job** (`/api/v1/jobs`) | id is `<provider id>:<session id>`; archived sessions are hidden |
 | status `busy` or `retry` | job state `running` | counted in `active_jobs` |
 | any other session | job state `idle` | an idle session is not a success or failure; there is no queue, so `queued_jobs` stays 0 |
 
-Freshness: a provider is stale if it has not been read for three polling rounds (default 45 seconds). If a server goes offline, its last session list is kept and shown as **stale** rather than disappearing, and jobs on an offline or stale provider do not count as active. `used_vcpu` stays a placeholder: OpenCode does not report CPU use per session, and oxnet.work does not guess.
+Freshness: a provider is stale if it has not been read for three polling rounds (default 45 seconds). If a server goes offline or a session read is incomplete, its last complete list is kept and shown as **stale** rather than disappearing. Jobs on an offline, degraded or stale provider do not count as active. `used_vcpu` stays a placeholder: OpenCode does not report CPU use per session, and oxnet.work does not guess.
 
 ## Configuration
 

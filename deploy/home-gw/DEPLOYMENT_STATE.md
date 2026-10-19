@@ -64,6 +64,8 @@ This is the verified live state as of the local PC SSH session on 18 October 202
 2. Enroll additional Linux and Windows nodes only with a separate per-node token and verified inventory ID. Add separate providers for service checks, Docker inventory, jobs and network links; do not infer those from Tailscale membership or an agent heartbeat. An explicit in-container certificate/discovery probe is still useful.
 3. Filebrowser Serve returned HTTP 200 with trusted TLS before the live switch; recheck if its route changes. Test a full restore on a separate host and arrange a second durable off-host copy.
 
+4a. **`DESKTOP-HHBRUDD` agent did not start at sign-in (19 October 2026 finding, cause unconfirmed).** Boot 21:54, sign-in 21:55, agent process started 22:17 (manual restart), no crash event. The most likely cause is that the agent was installed from inside a packaged app, so its Run entry lives in a private redirected store. Run `deploy/agents/diagnose-windows-agent.ps1` from an ordinary PowerShell window and follow `deploy/agents/README.md` > Troubleshooting. Re-install from an ordinary PowerShell window if the real Run entry is missing.
+
 Do not publish either application through Pangolin or a public router port. Do not paste credentials into logs, Git, or chat.
 
 ## Automations (Milestone 4) deployed and reviewed — 18 October 2026

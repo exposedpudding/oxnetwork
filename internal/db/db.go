@@ -83,6 +83,19 @@ func Migrate(database *sql.DB) error {
 	return nil
 }
 
+// SchemaVersion is the newest migration this build can apply. Restoring a backup
+// made by a newer build is refused rather than run against an unknown schema.
+func SchemaVersion() int {
+	files, _ := fs.Glob(migrations, "migrations/*.sql")
+	newest := 0
+	for _, name := range files {
+		if version, err := strconv.Atoi(strings.SplitN(filepath.Base(name), "_", 2)[0]); err == nil && version > newest {
+			newest = version
+		}
+	}
+	return newest
+}
+
 func Ready(ctx context.Context, database *sql.DB) error {
 	if err := database.PingContext(ctx); err != nil {
 		return err

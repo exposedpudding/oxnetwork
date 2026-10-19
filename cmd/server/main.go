@@ -25,6 +25,9 @@ import (
 )
 
 func main() {
+	if handled, code := runMaintenance(os.Args[1:], os.Stdout, os.Stderr); handled {
+		os.Exit(code)
+	}
 	configPath := flag.String("config", os.Getenv("OXNET_CONFIG"), "YAML configuration file")
 	listen := flag.String("listen", "", "override listen address")
 	flag.Parse()

@@ -1,0 +1,14 @@
+# OpenCode compute providers (ADR-017). Copy to opencode-servers.yml on Home GW and edit.
+# Read-only: oxnet.work lists the sessions an OpenCode server reports and whether it is
+# healthy. It never sends prompts or changes anything on the server.
+#
+# The password is NOT in this file. Create secrets/opencode_ox_c_01 containing the server
+# password (root:10001, mode 640) yourself; it is read once at startup.
+opencode_poll_interval_seconds: 15   # 5-300; a reading goes stale after three missed rounds
+opencode_servers:
+  - id: ox-c-01                      # lowercase letters, digits, dashes
+    name: OX-C-01 OpenCode
+    url: http://100.69.88.98:4096    # the server listens on its Tailscale address only
+    username: opencode
+    password_file: /run/secrets/opencode_ox_c_01
+    node_id: tailscale-2365559827781033   # optional: the inventory node this server runs on

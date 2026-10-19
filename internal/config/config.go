@@ -46,7 +46,31 @@ type Config struct {
 	// They are never accepted from API requests.
 	ServiceProbes               []ServiceProbe `yaml:"service_probes"`
 	ServiceProbeIntervalSeconds int            `yaml:"service_probe_interval_seconds"`
+	// OpenCodeServers are read-only compute providers (ADR-017).
+	OpenCodeServers             []OpenCodeServer `yaml:"opencode_servers"`
+	OpenCodePollIntervalSeconds int              `yaml:"opencode_poll_interval_seconds"`
 }
+
+// OpenCodeServer names an `opencode serve` instance to read worker health and
+// session activity from. The password is read from PasswordFile at startup and is
+// never part of the configuration, logs or API responses.
+type OpenCodeServer struct {
+	ID           string `yaml:"id"`
+	Name         string `yaml:"name"`
+	URL          string `yaml:"url"`
+	Username     string `yaml:"username"`
+	PasswordFile string `yaml:"password_file"`
+	// NodeID is the inventory node this server runs on (for example
+	// tailscale-2365559827781033); optional.
+	NodeID string `yaml:"node_id"`
+}
+
+const (
+	MaxOpenCodeServers          = 10
+	DefaultOpenCodePollInterval = 15
+)
+
+var openCodeNodePattern = regexp.MustCompile(`^tailscale-[0-9]+$`)
 
 // ServiceProbe describes one endpoint to check. The probe sends a GET with no
 // credentials, never follows redirects, always verifies TLS, and reads at most
@@ -145,6 +169,25 @@ func Load(path string) (Config, error) {
 			c.ServiceProbeIntervalSeconds = file.ServiceProbeIntervalSeconds
 		}
 	}
+	if value, ok := os.LookupEnv("OXNET_OPENCODE_SERVERS_FILE"); ok && value != "" {
+		body, err := os.ReadFile(value)
+		if err != nil {
+			return c, fmt.Errorf("opencode servers file: %w", err)
+		}
+		var file struct {
+			OpenCodeServers             []OpenCodeServer `yaml:"opencode_servers"`
+			OpenCodePollIntervalSeconds int              `yaml:"opencode_poll_interval_seconds"`
+		}
+		decoder := yaml.NewDecoder(strings.NewReader(string(body)))
+		decoder.KnownFields(true)
+		if err := decoder.Decode(&file); err != nil {
+			return c, fmt.Errorf("opencode servers file: %w", err)
+		}
+		c.OpenCodeServers = file.OpenCodeServers
+		if file.OpenCodePollIntervalSeconds != 0 {
+			c.OpenCodePollIntervalSeconds = file.OpenCodePollIntervalSeconds
+		}
+	}
 	if value, ok := os.LookupEnv("OXNET_SERVICE_PROBE_INTERVAL_SECONDS"); ok && value != "" {
 		seconds, err := strconv.Atoi(value)
 		if err != nil {
@@ -179,6 +222,12 @@ func (c Config) Validate() error {
 		return errors.New("service probes require live inventory")
 	}
 	if err := c.validateProbes(); err != nil {
+		return err
+	}
+	if len(c.OpenCodeServers) > 0 && c.Features.DemoProvider {
+		return errors.New("opencode servers require live inventory")
+	}
+	if err := c.validateOpenCode(); err != nil {
 		return err
 	}
 	if !c.Features.DemoProvider {
@@ -248,6 +297,51 @@ func (c Config) validateProbes() error {
 		}
 	}
 	return nil
+}
+
+func (c Config) validateOpenCode() error {
+	if c.OpenCodePollIntervalSeconds != 0 && (c.OpenCodePollIntervalSeconds < 5 || c.OpenCodePollIntervalSeconds > 300) {
+		return errors.New("opencode_poll_interval_seconds must be between 5 and 300")
+	}
+	if len(c.OpenCodeServers) > MaxOpenCodeServers {
+		return fmt.Errorf("at most %d opencode servers are supported", MaxOpenCodeServers)
+	}
+	seen := map[string]bool{}
+	for i, server := range c.OpenCodeServers {
+		label := fmt.Sprintf("opencode_servers[%d]", i)
+		if !probeIDPattern.MatchString(server.ID) {
+			return fmt.Errorf("%s: id must be 1-40 lowercase letters, digits or dashes", label)
+		}
+		if seen[server.ID] {
+			return fmt.Errorf("%s: duplicate id %q", label, server.ID)
+		}
+		seen[server.ID] = true
+		if len([]rune(server.Name)) > 60 {
+			return fmt.Errorf("%s: name must be 60 characters or fewer", label)
+		}
+		u, err := url.Parse(server.URL)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" {
+			return fmt.Errorf("%s: url must be an absolute http or https URL", label)
+		}
+		if u.User != nil || u.Fragment != "" || u.RawQuery != "" {
+			return fmt.Errorf("%s: url must not contain credentials, a query or a fragment (use password_file)", label)
+		}
+		if server.NodeID != "" && !openCodeNodePattern.MatchString(server.NodeID) {
+			return fmt.Errorf("%s: node_id must look like tailscale-<number>", label)
+		}
+		if server.PasswordFile != "" && !filepath.IsAbs(server.PasswordFile) {
+			return fmt.Errorf("%s: password_file must be an absolute path", label)
+		}
+	}
+	return nil
+}
+
+// OpenCodePollInterval is the time between OpenCode polling rounds.
+func (c Config) OpenCodePollInterval() int {
+	if c.OpenCodePollIntervalSeconds == 0 {
+		return DefaultOpenCodePollInterval
+	}
+	return c.OpenCodePollIntervalSeconds
 }
 
 // ProbeInterval is the time between probe rounds.

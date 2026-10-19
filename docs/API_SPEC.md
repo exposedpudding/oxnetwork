@@ -118,6 +118,10 @@ Errors specific to this area: `INVALID_WORKFLOW` and `ACTION_NOT_SUPPORTED` (`40
 
 Mutations require `Content-Type: application/json`, a same-origin `Origin` when the browser sends one, and `mutations_enabled: true` in `/api/v1/system` (signed in, or a loopback-bound server). With sign-in enabled the `X-CSRF-Token` header from `GET /auth/session` is required on every non-GET `/api/` request.
 
+### Compute providers (ADR-017)
+
+When `opencode_servers` is configured (live mode only), `GET /api/v1/jobs` returns the agent sessions the servers report, `GET /api/v1/compute/providers` returns each server's reachability, version and session counts, and `GET /api/v1/compute/summary` gains `jobs_source: "opencode"` and a real `active_jobs` (running sessions on reachable servers with a fresh reading). Job `state` is `running` (busy or retrying) or `idle`; an idle session is not a success or failure. `queued_jobs` stays 0 because OpenCode has no queue, and `used_vcpu` stays a placeholder because per-session CPU use is not measured. Jobs carry metadata only (title truncated to 80 characters, agent, model, token and cost totals, timestamps); prompts, messages and files are never read. With no provider configured these endpoints return empty lists and the summary has no `jobs_source`. See [OPENCODE.md](OPENCODE.md).
+
 ### Services (ADR-014)
 
 `GET /api/v1/services` and `GET /api/v1/services/{id}` return `{id, name, health, freshness, simulated}` plus, for probed services, `endpoint` (the address checked, query string removed) and `detail` (the short result). Probed services have ids `probe-<probe id>` and `health.source` `http-probe`. `health.state` is `healthy` only when the endpoint returned an expected status within its deadline, otherwise `unhealthy`; a result older than three probe rounds reports `freshness: "stale"`. Probes are fixed in server configuration and cannot be created or changed through the API.

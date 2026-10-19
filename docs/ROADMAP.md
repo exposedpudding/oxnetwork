@@ -104,13 +104,14 @@ Acceptance: owner can see which services are externally exposed and through what
 
 ## Milestone 8 - OpenCode compute
 
-- [ ] OpenCode adapter contract finalized against deployed environment.
-- [ ] Live worker discovery.
-- [ ] Live job discovery.
+- [x] OpenCode adapter contract finalized against deployed environment ([OPENCODE.md](OPENCODE.md), verified against the real server on OX-C-01, OpenCode 1.19.3).
+- [x] Live worker discovery (read-only; `internal/integrations/opencode`, ADR-017; branch `claude/opencode-adapter`, awaiting Codex review, not deployed).
+- [x] Live job discovery (root sessions across every project as jobs `running` or `idle`).
 - [ ] Submit/cancel only after security review.
 - [ ] Placement integration where appropriate.
+- [ ] Multi-node pool, primary election and CPU-pooled local models (design, needs more nodes).
 
-Acceptance: Compute page reflects real OpenCode worker/job state.
+Acceptance: Compute page reflects real OpenCode worker/job state. Met in code and tests; it becomes true on Home GW only after deployment with `live-opencode.compose.yml` and a Tailscale grant allowing Home GW to reach OX-C-01 port 4096.
 
 ## Milestone 9 - safe actions
 

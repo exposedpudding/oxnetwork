@@ -28,10 +28,10 @@ export async function loadOverview() {
 }
 
 export async function loadCompute() {
-  const [summary, workers, jobs] = await Promise.all([
-    client.getComputeSummary(), client.listWorkers(), client.listJobs()
+  const [summary, workers, jobs, providers] = await Promise.all([
+    client.getComputeSummary(), client.listWorkers(), client.listJobs(), client.listComputeProviders()
   ])
-  return { summary: unwrap(summary), workers: unwrap(workers).items, jobs: unwrap(jobs).items }
+  return { summary: unwrap(summary), workers: unwrap(workers).items, jobs: unwrap(jobs).items, providers: unwrap(providers).items }
 }
 
 export async function loadNode(id: string) {

@@ -18,6 +18,7 @@ import (
 	"github.com/exposedpudding/oxnetwork/internal/db"
 	"github.com/exposedpudding/oxnetwork/internal/domain"
 	"github.com/exposedpudding/oxnetwork/internal/integrations/demo"
+	"github.com/exposedpudding/oxnetwork/internal/integrations/opencode"
 	"github.com/exposedpudding/oxnetwork/internal/integrations/tailscale"
 	"github.com/exposedpudding/oxnetwork/internal/inventory"
 	"github.com/exposedpudding/oxnetwork/internal/probe"
@@ -156,6 +157,32 @@ func main() {
 	}
 	app := &api.Server{DB: database, Repo: repo, WebDir: cfg.Server.WebDir, SiteName: cfg.UI.SiteName, AuthEnabled: cfg.OIDCEnabled(), SourceMode: mode, Log: log, Runner: runner, Hub: hub, MutationsAllowed: cfg.OIDCEnabled() || isLoopback}
 	app.HostAgentTokensDir = cfg.HostAgent.TokenDir
+	var opencodePoller *opencode.Poller
+	if len(cfg.OpenCodeServers) > 0 {
+		clients := make([]opencode.Client, 0, len(cfg.OpenCodeServers))
+		for _, server := range cfg.OpenCodeServers {
+			password := ""
+			if server.PasswordFile != "" {
+				secret, err := os.ReadFile(server.PasswordFile)
+				if err != nil {
+					log.Error("OpenCode server password file unavailable", "server", server.ID, "error", err)
+					os.Exit(1)
+				}
+				password = strings.TrimSpace(string(secret))
+				if password == "" {
+					log.Error("OpenCode server password file is empty", "server", server.ID)
+					os.Exit(1)
+				}
+			}
+			clients = append(clients, opencode.Client{Server: opencode.Server{ID: server.ID, Name: server.Name, URL: server.URL, Username: server.Username, Password: password, NodeID: server.NodeID}})
+		}
+		opencodePoller = &opencode.Poller{Clients: clients, Interval: time.Duration(cfg.OpenCodePollInterval()) * time.Second, Log: log}
+		pollCtx, pollCancel := context.WithTimeout(context.Background(), 15*time.Second)
+		opencodePoller.PollAll(pollCtx)
+		pollCancel()
+		app.Compute = opencodePoller
+		log.Info("OpenCode servers configured", "count", len(clients), "interval_seconds", cfg.OpenCodePollInterval())
+	}
 	var handler http.Handler = app.Handler()
 	if cfg.OIDCEnabled() {
 		identity, err := auth.New(context.Background(), database, cfg)
@@ -185,6 +212,9 @@ func main() {
 	runner.BaseContext = ctx
 	scheduler := &workflow.Scheduler{Runner: runner, Inventory: repo, Log: log}
 	go scheduler.Run(ctx)
+	if opencodePoller != nil {
+		go opencodePoller.Run(ctx)
+	}
 	if prober != nil {
 		// Publish each probe round on its own so service health stays current even
 		// while the Tailscale API is unreachable. Upsert never deletes other rows.

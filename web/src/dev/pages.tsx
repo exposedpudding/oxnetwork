@@ -106,7 +106,7 @@ export function ComputePage() {
           rowKey={(j) => j.id}
           columns={[
             { key: 'name', header: 'Job', render: (j) => j.name },
-            { key: 'state', header: 'State', render: (j) => <StatusChip status={j.state === 'succeeded' ? 'success' : j.state} /> },
+            { key: 'state', header: 'State', render: (j) => <StatusChip status={j.state === 'succeeded' ? 'success' : j.state === 'idle' ? 'unknown' : j.state} /> },
             { key: 'worker', header: 'Worker', render: (j) => workers.find((w) => w.id === j.worker_id)?.name ?? 'Unassigned' },
           ]}
         />

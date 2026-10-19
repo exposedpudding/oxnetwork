@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/exposedpudding/oxnetwork/internal/compute"
 	"github.com/exposedpudding/oxnetwork/internal/db"
 	"github.com/exposedpudding/oxnetwork/internal/domain"
 	"github.com/exposedpudding/oxnetwork/internal/inventory"
@@ -41,6 +42,9 @@ type Server struct {
 	Runner           *workflow.Runner
 	Hub              *workflow.Hub
 	MutationsAllowed bool
+	// Compute reports workers and jobs from compute providers such as OpenCode
+	// servers (ADR-017). Nil means none are configured.
+	Compute compute.Source
 }
 
 func (s *Server) sourceMode() string {
@@ -74,6 +78,9 @@ func (s *Server) Handler() http.Handler {
 		features := []string{feature}
 		if s.Runner != nil {
 			features = append(features, "automations")
+		}
+		if s.Compute != nil {
+			features = append(features, "opencode")
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"name": "oxnet.work", "site_name": s.SiteName, "version": "0.1.0-dev", "server_time": s.now(), "features": features, "demo_mode": mode == "demo", "inventory_source": mode, "auth_required": s.AuthEnabled, "mutations_enabled": s.Runner != nil && s.MutationsAllowed})
 	})
@@ -166,10 +173,30 @@ func (s *Server) Handler() http.Handler {
 				freshness = worker.Freshness
 			}
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"total_vcpu": total, "used_vcpu": 0, "reserved_vcpu": 0, "active_jobs": 0, "queued_jobs": 0, "observed_at": observedAt, "freshness": freshness, "simulated": true})
+		summary := map[string]any{"total_vcpu": total, "used_vcpu": 0, "reserved_vcpu": 0, "active_jobs": 0, "queued_jobs": 0, "observed_at": observedAt, "freshness": freshness, "simulated": true}
+		if s.Compute != nil {
+			// Job counts come from the compute providers (ADR-017). vCPU use is still
+			// not measured per job, so used_vcpu stays a placeholder.
+			state := s.Compute.State(s.now())
+			summary["active_jobs"] = state.ActiveJobs()
+			summary["jobs_source"] = "opencode"
+			summary["jobs_observed_at"] = state.ObservedAt
+		}
+		writeJSON(w, http.StatusOK, summary)
 	})
 	mux.HandleFunc("GET /api/v1/jobs", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]any{"items": []any{}})
+		jobs := []compute.Job{}
+		if s.Compute != nil {
+			jobs = s.Compute.State(s.now()).Jobs
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"items": jobs})
+	})
+	mux.HandleFunc("GET /api/v1/compute/providers", func(w http.ResponseWriter, r *http.Request) {
+		providers := []compute.Provider{}
+		if s.Compute != nil {
+			providers = s.Compute.State(s.now()).Providers
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"items": providers})
 	})
 	mux.HandleFunc("GET /api/v1/network/graph", func(w http.ResponseWriter, r *http.Request) {
 		snapshot, ok := s.snapshot(w, r)

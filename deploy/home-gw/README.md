@@ -57,6 +57,10 @@ docker compose --env-file .env -f compose.yml -f private-edge.compose.yml -f liv
 
 `backup-oxnet.sh`, `restore-oxnet.sh` and the optional `oxnetwork-backup.timer` back up and restore the oxnet.work SQLite database (ADR-016). They need an image built from this version (the commands are `oxnet-work backup|verify|restore`). Read [docs/BACKUP_RESTORE.md](../../docs/BACKUP_RESTORE.md) first: it explains what is and is not in a backup, the restore test procedure, and how to undo a restore. Backups are root-only files under `/opt/oxnetwork-backups/oxnet-db`; keep a copy off the host.
 
+### Optional OpenCode compute providers
+
+`live-opencode.compose.yml` lets the Compute page show real OpenCode servers and sessions (ADR-017, [docs/OPENCODE.md](../../docs/OPENCODE.md)). It is read-only and opt-in. It needs a password secret you create (`secrets/opencode_ox_c_01`, `root:10001`, mode `640`) and network reachability from Home GW to the OpenCode server's Tailscale address and port; test with `curl` from Home GW before adding the overlay. Every later Compose command for the app must include all overlay files you use.
+
 ## Prepare secrets on Home GW
 
 Authentik was reported running already; inspect that installation before using bootstrap. For a fresh Home GW installation, `bash bootstrap-authentik.sh` generates PostgreSQL and Authentik secrets locally, keeps an existing `.env` intact, and starts only the Authentik services. After configuring the Authentik OIDC application, run `sudo bash finish-oxnet.sh` from an interactive terminal; it prompts for the client ID and secret without echoing the secret, builds oxnet.work, checks secret readability, starts it and calls `/readyz`.

@@ -147,6 +147,9 @@ export interface ComputeSummary {
   observed_at: string;
   freshness: NodeFreshness;
   simulated: boolean;
+  /** Present only when a compute provider supplies the job counts. */
+  jobs_source?: string;
+  jobs_observed_at?: string;
 }
 
 export interface Worker {
@@ -161,15 +164,47 @@ export interface Worker {
   simulated: boolean;
 }
 
-export type JobState = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+/** `idle` is an OpenCode session that is not running a turn; it is not a batch job result. */
+export type JobState = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled' | 'idle';
 
-/** provisional shape: the spec only says `GET /jobs` returns `{items: object[]}` (empty in demo mode). */
+/**
+ * Agent work reported by a compute provider (ADR-017). Empty unless a provider such as an
+ * OpenCode server is configured. `name` is the session title, truncated to 80 characters;
+   * messages and file contents are never included. Titles can contain user text.
+ */
 export interface Job {
   id: string;
   name: string;
   state: JobState;
   worker_id?: string;
   started_at?: string;
+  updated_at?: string;
+  provider_id?: string;
+  source?: string;
+  agent?: string;
+  model?: string;
+  cost?: number;
+  tokens?: number;
+  freshness?: NodeFreshness;
+}
+
+/** One configured compute server (an OpenCode server) and its latest reading. */
+export interface ComputeProvider {
+  id: string;
+  name: string;
+  kind: string;
+  /** Address polled, without credentials. */
+  endpoint: string;
+  node_id?: string;
+  state: 'online' | 'degraded' | 'offline';
+  version?: string;
+  active_sessions: number;
+  total_sessions: number;
+  /** Why a provider is offline or partly unavailable. */
+  detail?: string;
+  observed_at: string;
+  stale_after_seconds: number;
+  freshness: NodeFreshness;
 }
 
 export interface ApiError {

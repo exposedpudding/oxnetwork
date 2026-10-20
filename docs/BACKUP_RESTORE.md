@@ -33,7 +33,7 @@ sudo bash restore-oxnet.sh /opt/oxnetwork-backups/oxnet-db/oxnet-20261019T023000
 
 `backup-oxnet.sh` snapshots inside the running container, copies the file out, re-verifies it, writes the checksum and prunes old copies. `restore-oxnet.sh` verifies the backup **before** stopping anything, then stops the app, restores into the data volume (keeping a safety copy there), hands file ownership back to the app user, starts the app and waits for `/readyz`. If the backup is rejected, the app is never stopped. If the restore itself fails, the old database is untouched and the app is restarted.
 
-Schedule it (not installed by default; install after review):
+Schedule it on a new host (the timer is enabled on Home GW since 20 October 2026):
 
 ```bash
 sudo cp oxnetwork-backup.service oxnetwork-backup.timer /etc/systemd/system/

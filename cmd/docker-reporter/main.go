@@ -103,9 +103,12 @@ func main() {
 		if err == nil {
 			report, skipped := toReport(list)
 			if skipped > 0 {
-				log.Warn("some containers were not reported", "skipped", skipped)
+				// A partial list must not replace a complete one and look fresh in
+				// the dashboard. Let the last valid report become stale instead.
+				err = fmt.Errorf("container list incomplete: %d entries omitted", skipped)
+			} else {
+				err = send(ctx, client, endpoint, token, report)
 			}
-			err = send(ctx, client, endpoint, token, report)
 		}
 		if err != nil && ctx.Err() == nil {
 			log.Warn("container report failed", "error", err)

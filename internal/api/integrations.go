@@ -209,8 +209,8 @@ func buildIntegrations(in integrationInputs, now time.Time) []Integration {
 	if in.compute == nil || len(in.compute.Providers) == 0 {
 		openCode.State, openCode.Detail = integrationNotConfigured, "No OpenCode servers are configured."
 	} else {
-		var online, partial int
-		var down []string
+		var complete, partial int
+		var attention []string
 		var observed time.Time
 		providerStale := false
 		for _, provider := range in.compute.Providers {
@@ -218,9 +218,8 @@ func buildIntegrations(in integrationInputs, now time.Time) []Integration {
 				providerStale = true
 			}
 			if provider.State == compute.ProviderOnline && provider.Freshness == "fresh" {
-				online++
+				complete++
 			} else {
-				// A degraded provider answers but could not return every session: reachable, not fully read.
 				if provider.State == compute.ProviderDegraded && provider.Freshness == "fresh" {
 					partial++
 				}
@@ -228,7 +227,7 @@ func buildIntegrations(in integrationInputs, now time.Time) []Integration {
 				if provider.Detail != "" {
 					reason += " (" + provider.Detail + ")"
 				}
-				down = append(down, reason)
+				attention = append(attention, reason)
 			}
 			if provider.ObservedAt.After(observed) {
 				observed = provider.ObservedAt
@@ -240,21 +239,22 @@ func buildIntegrations(in integrationInputs, now time.Time) []Integration {
 		if providerStale {
 			openCode.Freshness = "stale"
 		}
+		openCode.Detail = fmt.Sprintf("%d of %d servers have complete session readings", complete, total)
 		if partial > 0 {
-			openCode.Detail = fmt.Sprintf("%d of %d servers fully read; running session count is incomplete", online, total)
+			openCode.Detail += "; running session count incomplete"
 		} else {
-			openCode.Detail = fmt.Sprintf("%d of %d servers reachable; %d running sessions", online, total, in.compute.ActiveJobs())
+			openCode.Detail += fmt.Sprintf("; %d running sessions", in.compute.ActiveJobs())
 		}
 		switch {
-		case online == total:
+		case complete == total:
 			openCode.State = integrationHealthy
-		case online+partial == 0:
+		case complete == 0 && partial == 0:
 			openCode.State = integrationUnhealthy
 		default:
 			openCode.State = integrationDegraded
 		}
-		if len(down) > 0 {
-			openCode.Detail += "; unavailable: " + names(down, 3)
+		if len(attention) > 0 {
+			openCode.Detail += "; needs attention: " + names(attention, 3)
 		}
 		openCode.Detail += "."
 	}

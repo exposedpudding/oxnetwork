@@ -59,7 +59,6 @@ func (s *Scheduler) prune(ctx context.Context, now time.Time) {
 	if !s.lastPrune.IsZero() && now.Sub(s.lastPrune) < pruneEvery {
 		return
 	}
-	s.lastPrune = now
 	days := s.RetentionDays
 	if days <= 0 {
 		days = DefaultRunRetentionDays
@@ -68,8 +67,11 @@ func (s *Scheduler) prune(ctx context.Context, now time.Time) {
 	switch {
 	case err != nil:
 		s.log("run retention failed", "error", err)
-	case deleted > 0:
-		s.log("old workflow runs removed", "deleted", deleted, "retention_days", days)
+	default:
+		s.lastPrune = now
+		if deleted > 0 {
+			s.log("old workflow runs removed", "deleted", deleted, "retention_days", days)
+		}
 	}
 }
 

@@ -145,3 +145,25 @@ func TestSchedulerPrunesOncePerInterval(t *testing.T) {
 		t.Fatalf("a tick after the interval left %d runs, want %d", got, KeepRunsPerWorkflow)
 	}
 }
+
+func TestSchedulerRetriesFailedPruneOnNextTick(t *testing.T) {
+	h := newHarness(t, demoInventory())
+	ctx := context.Background()
+	_ = SeedDemo(ctx, h.store)
+	wf := h.workflowNamed(t, "Health check sweep")
+	for i := 25; i >= 1; i-- {
+		h.finishedRunAt(t, wf, testNow.Add(-time.Duration(20+i)*24*time.Hour), RunSucceeded)
+	}
+	*h.clock = testNow
+	scheduler := &Scheduler{Runner: h.runner, Inventory: demoInventory(), RetentionDays: 7}
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	scheduler.Tick(cancelled, testNow)
+	if got := h.count(t, `SELECT COUNT(*) FROM workflow_runs`); got != 25 {
+		t.Fatalf("failed prune changed run count: %d", got)
+	}
+	scheduler.Tick(ctx, testNow.Add(time.Minute))
+	if got := h.count(t, `SELECT COUNT(*) FROM workflow_runs`); got != KeepRunsPerWorkflow {
+		t.Fatalf("successful retry left %d runs, want %d", got, KeepRunsPerWorkflow)
+	}
+}

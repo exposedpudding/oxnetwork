@@ -45,6 +45,12 @@ Codex should assign one Claude work package at a time and integrate only after t
 
 **For Codex when you return:** (1) review the staleness thresholds (180 s Tailscale, 90 s agents/probes, 45 s OpenCode), which mirror the existing polling intervals; (2) the page does not yet show per-host agent detail or Docker, which are separate milestones. Merge order: #2, #3, #5, then this PR.
 
+## Automation run retention (Milestone 4)
+
+**Status (19 October 2026): implemented by Claude Code on branch `claude/run-retention` (from `main`) at the owner's request; awaiting Codex review. Not merged, not deployed.** See ADR-018. `Store.PruneRuns` and a once-per-6-hours call from the scheduler trim finished runs older than `automation_run_retention_days` (default 90, range 7-3650) while always keeping each workflow's newest 20 finished runs and never touching queued or running rows. The append-only audit log is deliberately not pruned; each trimming adds one `workflow.runs.pruned` audit event.
+
+**For Codex when you return:** (1) confirm the 90 day and newest-20 defaults and that leaving audit unbounded is acceptable until an archive step is designed; (2) first deploy will trim at startup, so take a backup first (`backup-oxnet.sh`); (3) there is no UI or API for retention, by design (fixed configuration).
+
 ## Backup and restore (Milestone 11)
 
 **Status (19 October 2026): implemented by Claude Code on branch `claude/backup-restore`, stacked on `claude/service-health` (PR #2); awaiting Codex review. Not merged, not deployed.** See ADR-016 and [docs/BACKUP_RESTORE.md](docs/BACKUP_RESTORE.md). What exists: `internal/backup` and the `backup`, `verify` and `restore` subcommands of the server binary; session-free, integrity-checked, checksummed snapshots taken while the app runs; restore with a safety copy and a refusal of newer-schema backups; `deploy/home-gw/backup-oxnet.sh`, `restore-oxnet.sh` and an optional `oxnetwork-backup.timer`. Verified: `gofmt`, `go vet`, full Go suite with `-race`; the scripts run against a sandbox container; and a **real Home GW database backup restored and read back on OX-C-01** (results in the doc).

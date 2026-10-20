@@ -210,7 +210,7 @@ func main() {
 		}
 	}()
 	runner.BaseContext = ctx
-	scheduler := &workflow.Scheduler{Runner: runner, Inventory: repo, Log: log}
+	scheduler := &workflow.Scheduler{Runner: runner, Inventory: repo, Log: log, RetentionDays: cfg.AutomationRunRetentionDays}
 	go scheduler.Run(ctx)
 	if opencodePoller != nil {
 		go opencodePoller.Run(ctx)

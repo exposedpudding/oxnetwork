@@ -1,6 +1,6 @@
 # Home GW deployment plan
 
-**Current live status:** See [DEPLOYMENT_STATE.md](DEPLOYMENT_STATE.md), updated 18 October 2026. Private networking, TLS, Authentik OIDC, and oxnet.work are running. The owner signed in as `liam` with MFA; `akadmin` remains available with MFA at the owner's request. The dashboard imports real Tailscale device identity and receives host CPU, RAM, disk and capacity from agents on Home GW and `DESKTOP-HHBRUDD`. Other devices and service health remain unverified. A full restore on a separate host remains. Preserve the certificate, DNS, Tailscale Service, `.env`, and secrets when continuing.
+**Current live status:** See [AGENT_HANDOFF.md](AGENT_HANDOFF.md) and the latest section of [DEPLOYMENT_STATE.md](DEPLOYMENT_STATE.md), updated 20 October 2026. Private networking, TLS, Authentik OIDC, and oxnet.work are running. The owner signed in as `liam` with MFA; `akadmin` remains available with MFA at the owner's request. The dashboard imports real Tailscale device identity, host metrics from six agents, Docker inventory from two reporters, and private HTTPS probe results. A fresh full-stack backup and isolated restore test succeeded on OX-C-01. Preserve the certificate, DNS, Tailscale Service, `.env`, and secrets when continuing.
 
 **Historical state (prior handoff):** Authentik was healthy on Home GW while oxnet.work was stopped. The owner chose Home GW for both services and private Tailscale access for `auth.oxnet.work` and `oxnet.work`. Use the live state document above before running any setup commands below.
 
@@ -55,7 +55,7 @@ docker compose --env-file .env -f compose.yml -f private-edge.compose.yml -f liv
 
 ### Database backup and restore
 
-`backup-oxnet.sh`, `restore-oxnet.sh` and the optional `oxnetwork-backup.timer` back up and restore the oxnet.work SQLite database (ADR-016). They need an image built from this version (the commands are `oxnet-work backup|verify|restore`). Read [docs/BACKUP_RESTORE.md](../../docs/BACKUP_RESTORE.md) first: it explains what is and is not in a backup, the restore test procedure, and how to undo a restore. Backups are root-only files under `/opt/oxnetwork-backups/oxnet-db`; keep a copy off the host.
+`backup-oxnet.sh`, `restore-oxnet.sh` and the enabled `oxnetwork-backup.timer` back up and restore the oxnet.work SQLite database (ADR-016). They need an image built from this version (the commands are `oxnet-work backup|verify|restore`). Read [docs/BACKUP_RESTORE.md](../../docs/BACKUP_RESTORE.md) first: it explains what is and is not in a backup, the restore test procedure, and how to undo a restore. Backups are root-only files under `/opt/oxnetwork-backups/oxnet-db`. A separate full-stack set was made and restored in isolation on 20 October. For a prepared full-stack tar, `save-offhost-windows.ps1` writes a verified DPAPI encrypted Windows copy; it depends on that user's Windows profile for recovery.
 
 ### Optional OpenCode compute providers
 

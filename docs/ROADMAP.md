@@ -140,7 +140,7 @@ Public Pangolin exposure should not be enabled before this milestone is complete
 ## Milestone 11 - backup, polish, owner release
 
 - [x] Application DB backup/restore command (`oxnet-work backup|verify|restore`, ADR-016; PR #3 merged, verified live backup on Home GW, daily timer enabled).
-- [x] Restore test procedure ([docs/BACKUP_RESTORE.md](BACKUP_RESTORE.md)), executed once on 18 October 2026: a real Home GW app backup restored on OX-C-01 and read back through the app. Still open: a current encrypted off-host copy and a full restore including Authentik, certificates and secrets on a separate host.
+- [x] Restore test procedure ([docs/BACKUP_RESTORE.md](BACKUP_RESTORE.md)): app-only restore on OX-C-01 on 18 October; fresh full-stack set and isolated PostgreSQL, Authentik, TLS and app startup on OX-C-01 on 20 October. The Windows DPAPI encrypted copy passed decrypt-and-hash verification. Still open: a second encrypted copy with independent recovery and a test from that copy.
 - [x] Integration health view (Milestone 6); settings view remains a separate future task.
 - [ ] error/empty/stale state polish.
 - [ ] tablet layout pass.

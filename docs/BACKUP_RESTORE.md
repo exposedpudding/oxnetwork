@@ -1,6 +1,6 @@
 # Backup and restore (Milestone 11, ADR-016)
 
-This covers the **oxnet.work application database** (inventory, host observations, workflows, runs, audit trail). It is not a whole-stack backup: Authentik's PostgreSQL, its data volume, the TLS certificates, the Compose `.env`, the `secrets/` directory and the per-node agent tokens are backed up separately (see `deploy/home-gw/DEPLOYMENT_STATE.md`).
+The application commands and daily timer cover the **oxnet.work database** (inventory, host observations, workflows, runs, audit trail). They are not a whole-stack backup. The 20 October manual full-stack set also includes Authentik PostgreSQL and data, TLS certificates, Compose configuration, secrets and agent tokens (see [DEPLOYMENT_STATE.md](../deploy/home-gw/DEPLOYMENT_STATE.md)).
 
 ## What a backup contains
 
@@ -41,7 +41,7 @@ sudo systemctl daemon-reload && sudo systemctl enable --now oxnetwork-backup.tim
 systemctl list-timers oxnetwork-backup.timer
 ```
 
-**Copy backups off the host.** A backup on the same disk does not survive the disk. Keep at least one copy elsewhere and re-check it with `oxnet-work verify` (or `sha256sum -c`) after copying. This is still an owner action; nothing in this repository sends data off the host.
+**Copy backups off the host.** A backup on the same disk does not survive the disk. Keep at least one copy elsewhere and re-check it with `oxnet-work verify` (or `sha256sum -c`) after copying. The daily timer does not send data off the host. For a manually prepared full-stack tar, `deploy/home-gw/save-offhost-windows.ps1` streams it over SSH and saves only DPAPI CurrentUser encrypted bytes on Windows. Supply the Home GW SHA-256 with `-ExpectedSha256`; the script verifies the transfer and decrypts its output in memory to verify it again. The encrypted file depends on that Windows user's DPAPI profile. Maintain a separately recoverable encrypted copy and test its recovery.
 
 ## Undoing a restore
 
@@ -64,7 +64,14 @@ Do this on a **different machine** from the one that produced the backup, using 
 - **Verified:** 8 inventory nodes, 6 host observations, 1 workflow, 7 audit events and 3 session rows. The clean backup had the 3 sessions removed and everything else identical.
 - **Restored** into a fresh directory and started with the real server binary. The app migrated the database from schema 7 to 8, reported ready, and served the workflow `Check Home GW freshness` with its two successful runs (one cron, one manual by the owner) and the audit events.
 - **Scripts:** `backup-oxnet.sh` and `restore-oxnet.sh` were run for real against a sandbox container: three backups with pruning to the newest two, a change made after the backup that the restore correctly removed, a safety copy kept, file ownership returned to the app user (uid 10001), a damaged backup refused before the app was stopped, and the app left running.
-- **Not tested:** restoring Authentik, the certificates, the Compose secrets or the agent tokens; a restore on Home GW itself (the scripts have not yet been deployed there); and a second off-host copy. Those remain on the standing list in `deploy/home-gw/DEPLOYMENT_STATE.md`.
+- **Then untested:** Authentik, certificates, Compose secrets and agent tokens. These were included in the separate-host drill on 20 October below. No production Home GW restore was performed.
+
+### Full-stack drill on 20 October 2026
+
+- Home GW produced a fresh PostgreSQL custom dump, Authentik data archive, private configuration archive, and verified session-free app SQLite backup. The combined root-only tar is `/opt/oxnetwork-backups/oxnetwork-offhost-20261020T1843Z.tar`; SHA-256 is `b5b153c71eb954845f0ad83c25e39606f166e4046678229aa32827948d491a07`. The manifest covers all five component files and passed after transfer to OX-C-01.
+- On OX-C-01, `pg_restore --exit-on-error` loaded the dump into a fresh PostgreSQL 16 instance. Four Authentik users and two confirmed TOTP devices were present. The extracted TLS certificate was valid and its public key matched the private key. The restored app SQLite had `quick_check: ok`, migration 9, one workflow and eight inventory nodes.
+- The restored PostgreSQL, Authentik 2026.8.4, Caddy and app started on a Docker network marked `internal`, with no host port bindings. Authentik live and ready endpoints returned HTTP 200. Through restored trusted HTTPS, the app returned `/readyz` 200 and unauthenticated `/api/v1/system` 401; both configured service probes were healthy. The scratch stack and all secret-bearing scratch files were removed afterward.
+- A Windows off-host copy at `C:\Users\Lee\Documents\Codex\2026-10-18\ru\outputs\oxnetwork-offhost-20261020T1843Z.tar.dpapi` passed DPAPI decrypt-and-hash verification. This drill used the transferred plaintext tar, not a recovery from the DPAPI copy. It did not exercise an owner OIDC login/MFA, production DNS/ACME/Tailscale Service binding, or restoration on Home GW itself. A second encrypted copy with recovery independent of this Windows profile remains open.
 
 ## Limits and notes
 

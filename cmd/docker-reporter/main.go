@@ -32,7 +32,7 @@ func reportURL(base, nodeID string) (string, error) {
 		return "", fmt.Errorf("invalid Tailscale node ID")
 	}
 	u, err := url.Parse(base)
-	if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "/internal/v1/docker-report" {
+	if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || u.Path != "/internal/v1/docker-report" || u.EscapedPath() != u.Path {
 		return "", fmt.Errorf("invalid container report endpoint")
 	}
 	if u.Scheme != "https" {
@@ -93,7 +93,11 @@ func main() {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	client := &http.Client{Timeout: 10 * time.Second}
+	// A redirect is never needed for this fixed report endpoint. Reject it so the
+	// per-node bearer token cannot follow a redirect to another host.
+	client := &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
 	for {
 		list, err := listContainers(ctx, *socket)
 		if err == nil {

@@ -120,7 +120,9 @@ func (s *Service) Handler(next http.Handler) http.Handler {
 			_, _ = w.Write([]byte(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Signed out - oxnet.work</title><style>body{background:#071321;color:#eaf2fa;font:16px system-ui;display:grid;min-height:100vh;place-items:center;margin:0}main{max-width:28rem;padding:2rem}a{color:#59c8fa}</style><main><h1>Signed out of oxnet.work</h1><p>Your oxnet.work session has ended. Your Authentik session may still be active.</p><p><a href="/auth/login">Sign in again</a></p></main></html>`))
 			return
 		}
-		if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/internal/v1/host-report/") {
+		// Agent report endpoints carry their own per-node bearer token and are checked by
+		// the handler, not by a browser session. Nothing else under /internal/ is exempt.
+		if r.Method == http.MethodPost && (strings.HasPrefix(r.URL.Path, "/internal/v1/host-report/") || strings.HasPrefix(r.URL.Path, "/internal/v1/docker-report/")) {
 			next.ServeHTTP(w, r)
 			return
 		}

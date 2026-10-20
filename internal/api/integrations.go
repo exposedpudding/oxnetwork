@@ -9,6 +9,7 @@ import (
 
 	"github.com/exposedpudding/oxnetwork/internal/compute"
 	"github.com/exposedpudding/oxnetwork/internal/domain"
+	"github.com/exposedpudding/oxnetwork/internal/inventory"
 	"github.com/exposedpudding/oxnetwork/internal/workflow"
 )
 
@@ -47,6 +48,7 @@ type integrationInputs struct {
 	compute        *compute.State
 	automations    *workflow.Summary
 	automationsErr bool
+	containers     []inventory.ContainerNodeSummary
 }
 
 func ago(now, then time.Time) string {
@@ -157,6 +159,43 @@ func buildIntegrations(in integrationInputs, now time.Time) []Integration {
 		agents.Detail += "."
 	}
 	items = append(items, agents)
+
+	// Docker reporters (ADR-019): nodes that send their container list.
+	docker := Integration{ID: "docker", Name: "Docker container reporters", Kind: "containers", Freshness: "unknown"}
+	if len(in.containers) == 0 {
+		docker.State, docker.Detail = integrationNotConfigured, "No Docker reporter has reported."
+	} else {
+		var fresh, total, running int
+		var latest time.Time
+		var silent []string
+		for _, summary := range in.containers {
+			total += summary.Count
+			running += summary.Running
+			if now.Sub(summary.ReceivedAt) <= inventory.ContainerTTL*time.Second {
+				fresh++
+			} else {
+				silent = append(silent, summary.NodeID)
+			}
+			if summary.ReceivedAt.After(latest) {
+				latest = summary.ReceivedAt
+			}
+		}
+		docker.ObservedAt, docker.Freshness = ptr(latest), freshnessOf(latest, inventory.ContainerTTL*time.Second, now)
+		docker.Detail = fmt.Sprintf("%d of %d reporting nodes are current; %d containers, %d running", fresh, len(in.containers), total, running)
+		switch {
+		case fresh == len(in.containers):
+			docker.State = integrationHealthy
+		case fresh == 0:
+			docker.State = integrationUnhealthy
+		default:
+			docker.State = integrationDegraded
+		}
+		if len(silent) > 0 {
+			docker.Detail += "; not reporting: " + names(silent, 4)
+		}
+		docker.Detail += "."
+	}
+	items = append(items, docker)
 
 	// Service probes.
 	var probes, probesOK int
@@ -303,6 +342,9 @@ func (s *Server) listIntegrations(w http.ResponseWriter, r *http.Request) {
 	in := integrationInputs{snapshot: snapshot, sourceMode: s.sourceMode(), authEnabled: s.AuthEnabled, mutations: s.Runner != nil && s.MutationsAllowed}
 	if at, has, err := s.Repo.RefreshedAt(r.Context()); err == nil {
 		in.refreshedAt, in.hasRefresh = at, has
+	}
+	if summaries, err := s.Repo.ContainerSummaries(r.Context()); err == nil {
+		in.containers = summaries
 	}
 	if s.Compute != nil {
 		state := s.Compute.State(now)

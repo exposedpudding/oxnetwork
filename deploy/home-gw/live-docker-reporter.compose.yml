@@ -1,0 +1,9 @@
+# Optional container inventory (ADR-019). The reporter itself runs as a restricted
+# systemd service on each Docker host; this overlay only lets the app accept its
+# reports. The token directory is separate from the host-agent one on purpose.
+services:
+  oxnet-work:
+    environment:
+      OXNET_DOCKER_AGENT_TOKEN_DIR: /run/docker-agent-tokens
+    volumes:
+      - ./secrets/docker-agents:/run/docker-agent-tokens:ro

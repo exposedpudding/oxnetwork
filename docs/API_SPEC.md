@@ -126,6 +126,12 @@ When `opencode_servers` is configured (live mode only), `GET /api/v1/jobs` retur
 
 `GET /api/v1/integrations` returns `{items: [...]}`, one entry per source: `inventory` (Tailscale refresh time, or the demo provider), `host-agents` (enrolled hosts reporting within 90 s), `service-probes`, `opencode`, `automations` (failed runs in the last 24 hours) and `authentication`. `state` is `healthy`, `degraded`, `unhealthy`, `unknown` or `not_configured`; a source that is absent is never reported as failing. The list is computed from data the server already holds and makes no outbound calls. Inventory is stale after 180 s, agents and probes after 90 s, OpenCode after 45 s. It uses `MAX(updated_at)` of the inventory as the refresh time, so a host-agent report does not make an old Tailscale list look current. Read-only; no secrets or endpoints beyond names and counts are included.
 
+### Containers (ADR-019)
+
+`GET /api/v1/nodes/{id}/containers` returns `{reported, reported_at, freshness, items}` for one node. `reported` is false until the node's Docker reporter has sent a list (then `items` is empty and `freshness` is `unknown`); a node with no containers returns `reported: true` and an empty list. `freshness` is `stale` after 90 seconds. Each item has `id` (12 hex), `name`, `image`, `state`, `status`, `health` (`''`, `healthy`, `unhealthy` or `starting`), `created_at`, `ports` and optional `compose_project` and `compose_service`. Unknown node: 404. Environment variables, mounts, command lines and other labels are never present.
+
+`POST /internal/v1/docker-report/{node-id}` is the reporter's endpoint (not a browser API). It needs `Authorization: Bearer` with that node's token from the Docker agent token directory (a host-metrics token is rejected), accepts `{containers: [...]}` up to 256 KiB and 300 containers, rejects unknown fields, and returns 204. It returns 404 when `docker_agent.token_dir` is not configured or in demo mode.
+
 ### Services (ADR-014)
 
 `GET /api/v1/services` and `GET /api/v1/services/{id}` return `{id, name, health, freshness, simulated}` plus, for probed services, `endpoint` (the address checked, query string removed) and `detail` (the short result). Probed services have ids `probe-<probe id>` and `health.source` `http-probe`. `health.state` is `healthy` only when the endpoint returned an expected status within its deadline, otherwise `unhealthy`; a result older than three probe rounds reports `freshness: "stale"`. Probes are fixed in server configuration and cannot be created or changed through the API.

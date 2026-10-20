@@ -56,6 +56,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Metrics'
+  /nodes/{nodeId}/containers:
+    get:
+      operationId: getNodeContainers
+      description: Containers last reported by the node's opt-in Docker reporter (ADR-019). `reported` is false until a report arrives; reports older than 90 seconds are stale.
+      parameters:
+        - $ref: '#/components/parameters/NodeId'
+      responses:
+        '200':
+          description: Container list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeContainers'
+        '404':
+          description: Unknown node
   /services:
     get:
       operationId: listServices
@@ -750,11 +765,33 @@ components:
         observed_at: { type: string, format: date-time }
         stale_after_seconds: { type: integer }
         freshness: { type: string, enum: [fresh, stale] }
+    Container:
+      type: object
+      required: [id, name, image, state, status, health, created_at, ports]
+      properties:
+        id: { type: string, pattern: '^[0-9a-f]{12}$' }
+        name: { type: string }
+        image: { type: string }
+        state: { type: string, enum: [created, running, paused, restarting, removing, exited, dead] }
+        status: { type: string }
+        health: { type: string, enum: ['', healthy, unhealthy, starting] }
+        created_at: { type: string, format: date-time }
+        ports: { type: array, items: { type: string }, description: 'Published ports as ip:host->container/proto' }
+        compose_project: { type: string }
+        compose_service: { type: string }
+    NodeContainers:
+      type: object
+      required: [reported, reported_at, freshness, items]
+      properties:
+        reported: { type: boolean }
+        reported_at: { type: string, format: date-time, nullable: true }
+        freshness: { type: string, enum: [fresh, stale, unknown] }
+        items: { type: array, items: { $ref: '#/components/schemas/Container' } }
     Integration:
       type: object
       required: [id, name, kind, state, detail, observed_at, freshness]
       properties:
-        id: { type: string, enum: [inventory, host-agents, service-probes, opencode, automations, authentication] }
+        id: { type: string, enum: [inventory, host-agents, docker, service-probes, opencode, automations, authentication] }
         name: { type: string }
         kind: { type: string }
         state: { type: string, enum: [healthy, degraded, unhealthy, unknown, not_configured] }

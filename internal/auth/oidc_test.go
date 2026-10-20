@@ -85,6 +85,19 @@ func TestOIDCLoginSessionLogoutAndReplay(t *testing.T) {
 	if got := request("/compute", "GET", nil, "").Code; got != http.StatusSeeOther {
 		t.Fatalf("unauthenticated page: %d", got)
 	}
+	// Agent report endpoints are reached without a browser session (the handler checks the
+	// per-node token); nothing else under /internal/ and no other method is.
+	for _, path := range []string{"/internal/v1/host-report/tailscale-1", "/internal/v1/docker-report/tailscale-1"} {
+		if got := request(path, "POST", nil, "").Code; got != http.StatusOK {
+			t.Fatalf("POST %s must reach the handler without a session: %d", path, got)
+		}
+		if got := request(path, "GET", nil, "").Code; got == http.StatusOK {
+			t.Fatalf("GET %s must not bypass sign-in", path)
+		}
+	}
+	if got := request("/internal/v1/other/tailscale-1", "POST", nil, "").Code; got != http.StatusUnauthorized {
+		t.Fatalf("an unlisted internal path must require a session: %d", got)
+	}
 	login := request("/auth/login?return_to=%2Fcompute", "GET", nil, "")
 	if login.Code != http.StatusSeeOther {
 		t.Fatalf("login: %d %s", login.Code, login.Body.String())

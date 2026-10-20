@@ -39,8 +39,9 @@ export async function loadIntegrations() {
 }
 
 export async function loadNode(id: string) {
-  const [node, metrics] = await Promise.all([client.getNode(id), client.getNodeMetrics(id)])
-  return { ...unwrap(node), metrics: unwrap(metrics) }
+  const [node, metrics, containers] = await Promise.all([client.getNode(id), client.getNodeMetrics(id), client.getNodeContainers(id)])
+  // Containers are optional: a failed read shows as unavailable instead of hiding the node.
+  return { ...unwrap(node), metrics: unwrap(metrics), containers: containers.ok ? containers.data : null }
 }
 
 export async function loadNetwork() {

@@ -45,6 +45,16 @@ Codex should assign one Claude work package at a time and integrate only after t
 
 **For Codex when you return:** (1) review the staleness thresholds (180 s Tailscale, 90 s agents/probes, 45 s OpenCode), which mirror the existing polling intervals; (2) the page does not yet show per-host agent detail or Docker, which are separate milestones. Merge order: #2, #3, #5, then this PR.
 
+## Windows agent on DESKTOP-HHBRUDD (19 October 2026)
+
+Root cause confirmed and fixed: the agent had been installed from inside a packaged app, so its files and Run entry lived in that app's private store and vanished from the real profile. It was reinstalled from the real desktop shell and reports again. **Open:** confirm it starts by itself at the next sign-in. Details in `deploy/agents/README.md`. Lesson: install agents only from an ordinary PowerShell window, never from inside another app's terminal.
+
+## Docker container inventory (Milestone 6)
+
+**Status (19 October 2026): implemented by Claude Code on branch `claude/docker-inventory` at the owner's request; awaiting Codex confirmation. Not merged. DEPLOYED on Home GW on 19 October 2026 at the owner's request (see deploy/home-gw/DEPLOYMENT_STATE.md); reporters run on Home GW and OX-C-01 only.** See ADR-019 (it implements ADR-015, but as one reporter program instead of a bridge plus the collector) and [docs/DOCKER_INVENTORY.md](docs/DOCKER_INVENTORY.md). What exists: `cmd/docker-reporter` (one request on the Docker socket: `GET /containers/json`), `POST /internal/v1/docker-report/{id}` with its own per-node token directory, migration 009, `GET /api/v1/nodes/{id}/containers`, a Containers card on Node Detail, a Docker line on the Integrations page, and the systemd unit, install script, token script and Compose overlay under `deploy/`.
+
+**For Codex when you return:** (1) ADR-015 was Proposed; the owner asked for the work, so review ADR-019 as the accepting decision, especially the choice of one reporter instead of a bridge and the root-equivalent `docker` group it needs; (2) the open question of reporter-as-mode-of-host-agent versus a separate binary is answered here as separate, to keep the metrics agent Docker-free; (3) to deploy: take a backup, add `live-docker-reporter.compose.yml`, rebuild (migration 009 runs on start), create a token per host, then install the reporter only on hosts where Docker socket access is acceptable; (4) container health triggers for workflows and any container action are not built.
+
 ## Automation run retention (Milestone 4)
 
 **Status (19 October 2026): implemented by Claude Code on branch `claude/run-retention` (from `main`) at the owner's request; awaiting Codex review. Not merged, not deployed.** See ADR-018. `Store.PruneRuns` and a once-per-6-hours call from the scheduler trim finished runs older than `automation_run_retention_days` (default 90, range 7-3650) while always keeping each workflow's newest 20 finished runs and never touching queued or running rows. The append-only audit log is deliberately not pruned; each trimming adds one `workflow.runs.pruned` audit event.

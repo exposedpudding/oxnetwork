@@ -1,0 +1,33 @@
+[Unit]
+Description=oxnet.work read-only Docker container reporter for %i
+After=network-online.target tailscaled.service docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+# Membership in the docker group is root-equivalent on this host. The program makes one
+# request, GET /containers/json, and has no listener (ADR-019); everything else here
+# limits what a compromised copy could do besides that.
+SupplementaryGroups=docker
+LoadCredential=docker-token:/etc/oxnetwork/docker-reporters/%i
+ExecStart=/usr/local/libexec/oxnet-docker-reporter -node-id %i -token-file %d/docker-token
+Restart=always
+RestartSec=10s
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

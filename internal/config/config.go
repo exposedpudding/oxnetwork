@@ -42,6 +42,11 @@ type Config struct {
 	HostAgent struct {
 		TokenDir string `yaml:"token_dir"`
 	} `yaml:"host_agent"`
+	// DockerAgent configures the opt-in container reporter endpoint (ADR-019). Its token
+	// directory must differ from the host agent's so one leaked token cannot do both jobs.
+	DockerAgent struct {
+		TokenDir string `yaml:"token_dir"`
+	} `yaml:"docker_agent"`
 	// ServiceProbes are fixed, operator-configured read-only HTTP checks (ADR-014).
 	// They are never accepted from API requests.
 	ServiceProbes               []ServiceProbe `yaml:"service_probes"`
@@ -153,6 +158,9 @@ func Load(path string) (Config, error) {
 	if value, ok := os.LookupEnv("OXNET_HOST_AGENT_TOKEN_DIR"); ok {
 		c.HostAgent.TokenDir = value
 	}
+	if value, ok := os.LookupEnv("OXNET_DOCKER_AGENT_TOKEN_DIR"); ok {
+		c.DockerAgent.TokenDir = value
+	}
 	if value, ok := os.LookupEnv("OXNET_SERVICE_PROBES_FILE"); ok && value != "" {
 		body, err := os.ReadFile(value)
 		if err != nil {
@@ -220,6 +228,12 @@ func (c Config) Validate() error {
 	}
 	if c.HostAgent.TokenDir != "" && c.Features.DemoProvider {
 		return errors.New("host agent requires live inventory")
+	}
+	if c.DockerAgent.TokenDir != "" && c.Features.DemoProvider {
+		return errors.New("docker agent requires live inventory")
+	}
+	if c.DockerAgent.TokenDir != "" && c.DockerAgent.TokenDir == c.HostAgent.TokenDir {
+		return errors.New("docker_agent.token_dir must differ from host_agent.token_dir")
 	}
 	if len(c.ServiceProbes) > 0 && c.Features.DemoProvider {
 		return errors.New("service probes require live inventory")

@@ -20,8 +20,8 @@ func TestMigrationsAreRepeatable(t *testing.T) {
 		if err := database.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&count); err != nil {
 			t.Fatal(err)
 		}
-		if count != 8 {
-			t.Fatalf("expected eight migrations, got %d", count)
+		if count != 9 {
+			t.Fatalf("expected nine migrations, got %d", count)
 		}
 		// Migration 007 replaces the unused 001 audit placeholder, keeping it renamed.
 		var columns, legacy int

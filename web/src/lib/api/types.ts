@@ -188,6 +188,29 @@ export interface Job {
   freshness?: NodeFreshness;
 }
 
+/** A container reported by an opt-in Docker reporter (ADR-019). Identity, state and exposure only. */
+export interface Container {
+  id: string;
+  name: string;
+  image: string;
+  state: 'created' | 'running' | 'paused' | 'restarting' | 'removing' | 'exited' | 'dead';
+  status: string;
+  health: '' | 'healthy' | 'unhealthy' | 'starting';
+  created_at: string;
+  /** Published ports as `ip:host->container/proto`. */
+  ports: string[];
+  compose_project?: string;
+  compose_service?: string;
+}
+
+/** A node's latest container list. `reported` is false until a reporter has sent one. */
+export interface NodeContainers {
+  reported: boolean;
+  reported_at: string | null;
+  freshness: NodeFreshness | 'unknown';
+  items: Container[];
+}
+
 /** Health of one data source or subsystem, derived by the server from data it already holds. */
 export interface Integration {
   id: string;

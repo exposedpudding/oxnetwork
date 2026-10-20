@@ -157,6 +157,7 @@ func main() {
 	}
 	app := &api.Server{DB: database, Repo: repo, WebDir: cfg.Server.WebDir, SiteName: cfg.UI.SiteName, AuthEnabled: cfg.OIDCEnabled(), SourceMode: mode, Log: log, Runner: runner, Hub: hub, MutationsAllowed: cfg.OIDCEnabled() || isLoopback}
 	app.HostAgentTokensDir = cfg.HostAgent.TokenDir
+	app.DockerAgentTokensDir = cfg.DockerAgent.TokenDir
 	var opencodePoller *opencode.Poller
 	if len(cfg.OpenCodeServers) > 0 {
 		clients := make([]opencode.Client, 0, len(cfg.OpenCodeServers))

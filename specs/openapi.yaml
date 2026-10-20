@@ -164,6 +164,22 @@ paths:
                   items:
                     type: array
                     items: { $ref: '#/components/schemas/ComputeProvider' }
+  /integrations:
+    get:
+      operationId: listIntegrations
+      description: Health of each data source and subsystem (inventory source, host agents, service probes, OpenCode, automations, sign-in). Derived from data the server already holds; makes no network calls. `not_configured` means the source is absent, which is different from failing.
+      responses:
+        '200':
+          description: Integrations
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Integration' }
   /network/graph:
     get:
       operationId: getNetworkGraph
@@ -734,6 +750,17 @@ components:
         observed_at: { type: string, format: date-time }
         stale_after_seconds: { type: integer }
         freshness: { type: string, enum: [fresh, stale] }
+    Integration:
+      type: object
+      required: [id, name, kind, state, detail, observed_at, freshness]
+      properties:
+        id: { type: string, enum: [inventory, host-agents, service-probes, opencode, automations, authentication] }
+        name: { type: string }
+        kind: { type: string }
+        state: { type: string, enum: [healthy, degraded, unhealthy, unknown, not_configured] }
+        detail: { type: string }
+        observed_at: { type: string, format: date-time, nullable: true }
+        freshness: { type: string, enum: [fresh, stale, unknown] }
     ActionRequest:
       type: object
       required: [type, idempotency_key]

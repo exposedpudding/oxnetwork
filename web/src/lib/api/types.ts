@@ -188,6 +188,17 @@ export interface Job {
   freshness?: NodeFreshness;
 }
 
+/** Health of one data source or subsystem, derived by the server from data it already holds. */
+export interface Integration {
+  id: string;
+  name: string;
+  kind: string;
+  state: 'healthy' | 'degraded' | 'unhealthy' | 'unknown' | 'not_configured';
+  detail: string;
+  observed_at: string | null;
+  freshness: NodeFreshness | 'unknown';
+}
+
 /** One configured compute server (an OpenCode server) and its latest reading. */
 export interface ComputeProvider {
   id: string;

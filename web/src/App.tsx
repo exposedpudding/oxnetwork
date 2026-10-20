@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { automationActions, loadAuthSession, loadAutomations, loadCompute, loadNetwork, loadNode, loadOverview, logout, type AuthSession } from './api'
+import { automationActions, loadAuthSession, loadAutomations, loadCompute, loadIntegrations, loadNetwork, loadNode, loadOverview, logout, type AuthSession } from './api'
 import { AutomationsView, type AutomationsData } from './features/automations/AutomationsView'
+import { IntegrationsView } from './IntegrationsView'
 import { ComputeView, NodeDetailView } from './DetailViews'
 import { NetworkView } from './NetworkView'
 import { ErrorState } from './components/States'
@@ -45,13 +46,14 @@ export function OverviewView({ data, query }: { data: OverviewData; query: strin
   </>
 }
 
-type Page = { kind: 'overview' } | { kind: 'compute' } | { kind: 'network' } | { kind: 'automations' } | { kind: 'node'; id: string } | { kind: 'missing' }
+type Page = { kind: 'overview' } | { kind: 'compute' } | { kind: 'network' } | { kind: 'automations' } | { kind: 'integrations' } | { kind: 'node'; id: string } | { kind: 'missing' }
 
 export function pageFromPath(pathname: string): Page {
   if (pathname === '/') return { kind: 'overview' }
   if (pathname === '/compute') return { kind: 'compute' }
   if (pathname === '/network') return { kind: 'network' }
   if (pathname === '/automations') return { kind: 'automations' }
+  if (pathname === '/integrations') return { kind: 'integrations' }
   const match = /^\/nodes\/([^/]+)$/.exec(pathname)
   if (match) {
     try { return { kind: 'node', id: decodeURIComponent(match[1]) } } catch { return { kind: 'missing' } }
@@ -69,6 +71,7 @@ export function App() {
   const [network, setNetwork] = useState<Awaited<ReturnType<typeof loadNetwork>> | null>(null)
   const [node, setNode] = useState<Awaited<ReturnType<typeof loadNode>> | null>(null)
   const [automations, setAutomations] = useState<AutomationsData | null>(null)
+  const [integrations, setIntegrations] = useState<Awaited<ReturnType<typeof loadIntegrations>> | null>(null)
   const [authSession, setAuthSession] = useState<AuthSession | null>(null)
   const [query, setQuery] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
@@ -84,6 +87,7 @@ export function App() {
         if (result.system.auth_required) void loadAuthSession().then(session => { if (alive) setAuthSession(session) }).catch(() => { if (alive) setAuthSession(null) })
       }).catch(reason => { if (alive) setError(String(reason)) })
       if (page.kind === 'compute') void loadCompute().then(result => { if (alive) { setCompute(result); setPageError(null) } }).catch(reason => { if (alive) setPageError(String(reason)) })
+      if (page.kind === 'integrations') void loadIntegrations().then(result => { if (alive) { setIntegrations(result); setPageError(null) } }).catch(reason => { if (alive) setPageError(String(reason)) })
       if (page.kind === 'network') void loadNetwork().then(result => { if (alive) { setNetwork(result); setPageError(null) } }).catch(reason => { if (alive) setPageError(String(reason)) })
       if (page.kind === 'node') void loadNode(page.id).then(result => { if (alive) { setNode(result); setPageError(null) } }).catch(reason => { if (alive) setPageError(String(reason)) })
     }
@@ -117,10 +121,12 @@ export function App() {
         ? network ? <NetworkView data={network} query={query} demoMode={data?.system.demo_mode} /> : pageError ? <ErrorState message={pageError} /> : <div className="loading" role="status">Loading network…</div>
       : page.kind === 'automations'
         ? automations && data ? <AutomationsView data={automations} system={data.system} query={query} actions={automationActions} onChanged={reloadAutomations} /> : pageError ? <ErrorState message={pageError} /> : <div className="loading" role="status">Loading automations…</div>
+      : page.kind === 'integrations'
+        ? integrations ? <IntegrationsView items={integrations} query={query} /> : pageError ? <ErrorState message={pageError} /> : <div className="loading" role="status">Loading integrations…</div>
       : page.kind === 'node'
         ? node ? <NodeDetailView node={node} /> : pageError ? <ErrorState message={pageError} /> : <div className="loading" role="status">Loading node…</div>
         : <ErrorState title="Page not found" message="This page does not exist." />
-  const searchLabel = page.kind === 'compute' ? 'Search workers and jobs' : page.kind === 'network' ? 'Search network resources' : page.kind === 'automations' ? 'Search workflows' : 'Search nodes and services'
+  const searchLabel = page.kind === 'compute' ? 'Search workers and jobs' : page.kind === 'network' ? 'Search network resources' : page.kind === 'automations' ? 'Search workflows' : page.kind === 'integrations' ? 'Search integrations' : 'Search nodes and services'
   const signOut = () => { if (authSession) void logout(authSession.csrf_token).then(() => { window.location.assign('/auth/signed-out') }).catch(reason => setError(String(reason))) }
-  return <div className="app-shell"><aside className="sidebar"><div className="brand">oxnet<span>.work</span></div><nav aria-label="Primary"><a href="/" aria-current={page.kind === 'overview' ? 'page' : undefined} className={page.kind === 'overview' ? 'nav-active' : ''}><span aria-hidden="true">▦</span>Overview</a><a href="/compute" aria-current={page.kind === 'compute' ? 'page' : undefined} className={page.kind === 'compute' ? 'nav-active' : ''}><span aria-hidden="true">◫</span>Compute</a><a href="/network" aria-current={page.kind === 'network' ? 'page' : undefined} className={page.kind === 'network' ? 'nav-active' : ''}><span aria-hidden="true">⌁</span>Network</a><a href="/automations" aria-current={page.kind === 'automations' ? 'page' : undefined} className={page.kind === 'automations' ? 'nav-active' : ''}><span aria-hidden="true">▷</span>Automations</a></nav><div className="sidebar-bottom"><span className="sidebar-dot" />{data ? data.system.demo_mode ? 'Demo workspace' : 'Live inventory' : 'Workspace'}</div></aside><div className="main-column"><header className="topbar"><div className="site-pill">⌂ <span>{data?.system.site_name ?? 'Homelab'}</span></div>{page.kind !== 'node' && <div className="search-wrap"><span aria-hidden="true">⌕</span><input ref={searchRef} type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder={searchLabel} aria-label={searchLabel} /><kbd>⌘ K</kbd></div>}<span className="overall">{overall}</span>{authSession && <button type="button" className="signout" onClick={signOut} title={authSession.identity.email ?? authSession.identity.subject}>Sign out</button>}</header><main>{error && data && <div role="alert" className="error">Unable to refresh overview data: {error}. Showing the last available view.</div>}{pageError && (compute || network || node || automations) && <div role="alert" className="error">Unable to refresh this page: {pageError}. Showing the last available view.</div>}{content}</main></div></div>
+  return <div className="app-shell"><aside className="sidebar"><div className="brand">oxnet<span>.work</span></div><nav aria-label="Primary"><a href="/" aria-current={page.kind === 'overview' ? 'page' : undefined} className={page.kind === 'overview' ? 'nav-active' : ''}><span aria-hidden="true">▦</span>Overview</a><a href="/compute" aria-current={page.kind === 'compute' ? 'page' : undefined} className={page.kind === 'compute' ? 'nav-active' : ''}><span aria-hidden="true">◫</span>Compute</a><a href="/network" aria-current={page.kind === 'network' ? 'page' : undefined} className={page.kind === 'network' ? 'nav-active' : ''}><span aria-hidden="true">⌁</span>Network</a><a href="/automations" aria-current={page.kind === 'automations' ? 'page' : undefined} className={page.kind === 'automations' ? 'nav-active' : ''}><span aria-hidden="true">▷</span>Automations</a><a href="/integrations" aria-current={page.kind === 'integrations' ? 'page' : undefined} className={page.kind === 'integrations' ? 'nav-active' : ''}><span aria-hidden="true">⚙</span>Integrations</a></nav><div className="sidebar-bottom"><span className="sidebar-dot" />{data ? data.system.demo_mode ? 'Demo workspace' : 'Live inventory' : 'Workspace'}</div></aside><div className="main-column"><header className="topbar"><div className="site-pill">⌂ <span>{data?.system.site_name ?? 'Homelab'}</span></div>{page.kind !== 'node' && <div className="search-wrap"><span aria-hidden="true">⌕</span><input ref={searchRef} type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder={searchLabel} aria-label={searchLabel} /><kbd>⌘ K</kbd></div>}<span className="overall">{overall}</span>{authSession && <button type="button" className="signout" onClick={signOut} title={authSession.identity.email ?? authSession.identity.subject}>Sign out</button>}</header><main>{error && data && <div role="alert" className="error">Unable to refresh overview data: {error}. Showing the last available view.</div>}{pageError && (compute || network || node || automations || integrations) && <div role="alert" className="error">Unable to refresh this page: {pageError}. Showing the last available view.</div>}{content}</main></div></div>
 }

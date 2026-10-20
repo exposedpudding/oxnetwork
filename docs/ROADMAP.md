@@ -89,7 +89,7 @@ Acceptance met for Home GW, OX-C-01, the OVH VPS and three Windows 11 PCs (DESKT
 - [ ] Reconcile discovered tailnet nodes with existing inventory.
 - [ ] Docker inventory through agent (design options and a recommendation are in ADR-015, status Proposed).
 - [ ] Real containers on Node Detail.
-- [ ] Integration health UI.
+- [x] Integration health UI: `GET /api/v1/integrations` and an Integrations page (branch `claude/integration-health`, stacked on `claude/opencode-adapter`, awaiting Codex review).
 
 Acceptance: live private nodes and containers are visible; provider outage degrades gracefully.
 

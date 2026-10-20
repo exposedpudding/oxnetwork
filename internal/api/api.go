@@ -212,6 +212,7 @@ func (s *Server) Handler() http.Handler {
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"items": network.FromSnapshot(snapshot).Edges})
 	})
+	mux.HandleFunc("GET /api/v1/integrations", s.listIntegrations)
 	mux.HandleFunc("GET /api/v1/events", s.events)
 	s.registerWorkflowRoutes(mux)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {

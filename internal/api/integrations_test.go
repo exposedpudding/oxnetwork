@@ -138,7 +138,7 @@ func TestOpenCodeAutomationsAndSignInStates(t *testing.T) {
 		t.Fatalf("none configured: %+v", got)
 	}
 	in.compute = &compute.State{Providers: []compute.Provider{provider("a", compute.ProviderOnline, "", "fresh"), provider("b", compute.ProviderOnline, "", "fresh")}}
-	if got := byID(buildIntegrations(in, integrationNow))["opencode"]; got.State != integrationHealthy || got.Detail != "2 of 2 servers reachable; 0 running sessions." {
+	if got := byID(buildIntegrations(in, integrationNow))["opencode"]; got.State != integrationHealthy || got.Detail != "2 of 2 servers have complete session readings; 0 running sessions." {
 		t.Fatalf("healthy: %+v", got)
 	}
 	in.compute.Providers[0].ObservedAt = integrationNow.Add(-2 * time.Minute)
@@ -146,12 +146,12 @@ func TestOpenCodeAutomationsAndSignInStates(t *testing.T) {
 		t.Fatalf("long-interval OpenCode provider must stay fresh: %+v", got)
 	}
 	in.compute = &compute.State{Providers: []compute.Provider{provider("a", compute.ProviderOnline, "", "fresh"), provider("b", compute.ProviderOffline, "connection refused", "fresh")}}
-	if got := byID(buildIntegrations(in, integrationNow))["opencode"]; got.State != integrationDegraded || !strings.Contains(got.Detail, "unavailable: b (connection refused)") {
+	if got := byID(buildIntegrations(in, integrationNow))["opencode"]; got.State != integrationDegraded || !strings.Contains(got.Detail, "needs attention: b (connection refused)") {
 		t.Fatalf("one down: %+v", got)
 	}
-	in.compute = &compute.State{Providers: []compute.Provider{provider("a", compute.ProviderDegraded, "session list unavailable for one project", "fresh")}}
-	if got := byID(buildIntegrations(in, integrationNow))["opencode"]; got.State != integrationDegraded || !strings.Contains(got.Detail, "count is incomplete") || !strings.Contains(got.Detail, "session list unavailable") {
-		t.Fatalf("partial read must be degraded, not unhealthy or a confident count: %+v", got)
+	in.compute = &compute.State{Providers: []compute.Provider{provider("a", compute.ProviderDegraded, "session inventory incomplete", "fresh")}}
+	if got := byID(buildIntegrations(in, integrationNow))["opencode"]; got.State != integrationDegraded || !strings.Contains(got.Detail, "running session count incomplete") || !strings.Contains(got.Detail, "needs attention: a") {
+		t.Fatalf("partial session inventory: %+v", got)
 	}
 	in.compute = &compute.State{Providers: []compute.Provider{provider("a", compute.ProviderOnline, "", "stale")}}
 	if got := byID(buildIntegrations(in, integrationNow))["opencode"]; got.State != integrationUnhealthy || got.Freshness != "stale" {

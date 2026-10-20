@@ -68,7 +68,7 @@ Record material decisions here. Do not rewrite history; append superseding decis
 
 ## ADR-009 - Home GW identity and command centre placement
 
-**Status:** Accepted by owner for deployment; activation pending host access and validation
+**Status:** Implemented and verified on Home GW; latest deployment state recorded 20 October 2026.
 
 **Decision:** Host both the Authentik identity server and oxnet.work on Home GW. Use private Tailscale reachability and HTTPS names `auth.oxnet.work` (proposed) and `oxnet.work` (owner specified). Do not create public ingress by default. Authentik is a separate stack service with its own PostgreSQL database; oxnet.work remains a single Go/SQLite control-plane container.
 
@@ -78,7 +78,7 @@ Record material decisions here. Do not rewrite history; append superseding decis
 
 **Status:** Implemented and verified on 18 October 2026
 
-**Decision:** Serve `oxnet.work` and `auth.oxnet.work` at a dedicated Tailscale Service VIP through a loopback-bound Caddy edge on Home GW. Resolve both names to that VIP through tailnet split DNS. Use a trusted certificate issued through Spaceship DNS-01 and keep both names without public A/AAAA answers. Run Authentik and its PostgreSQL database alongside the Go/SQLite app. Keep all inventory simulated until an owner-approved live adapter is enabled.
+**Decision:** Serve `oxnet.work` and `auth.oxnet.work` at a dedicated Tailscale Service VIP through a loopback-bound Caddy edge on Home GW. Resolve both names to that VIP through tailnet split DNS. Use a trusted certificate issued through Spaceship DNS-01 and keep both names without public A/AAAA answers. Run Authentik and its PostgreSQL database alongside the Go/SQLite app. Live inventory was enabled later under ADR-011.
 
 **Reason:** The owner requested private access with familiar HTTPS names while preserving the existing node Serve routes and avoiding public ingress. The verified live state and remaining checks are in `deploy/home-gw/DEPLOYMENT_STATE.md`.
 
@@ -92,7 +92,7 @@ Record material decisions here. Do not rewrite history; append superseding decis
 
 ## ADR-012 - Per-node host metrics agents
 
-**Status:** Implemented for Home GW and one Windows 11 PC on 18 October 2026
+**Status:** Implemented on Home GW, OX-C-01, ovh-vps and three Windows 11 PCs by 20 October 2026.
 
 **Decision:** Use an outbound-only Go collector on Linux or Windows for CPU, physical RAM, system/root disk and capacity. Each Tailscale inventory node has its own telemetry-submit token; the server fixes report identity from the URL and a matching root-owned token file, then timestamps the receipt. Host reports are stored separately from Tailscale inventory so a device refresh cannot erase them. After 90 seconds without a report, the node becomes stale. Keep service health, jobs, containers, and network links unavailable until their own adapters report them.
 
@@ -120,7 +120,7 @@ Record material decisions here. Do not rewrite history; append superseding decis
 
 ## ADR-014 - Verified service health through fixed HTTP probes
 
-**Status:** Implemented by Claude Code on branch `claude/service-health` on 19 October 2026, following the slice Codex scoped in `TASK_BOARD.md`. Awaiting Codex review; not yet deployed.
+**Status:** Reviewed and merged in PR #2; live on Home GW for oxnet.work and Authentik since 20 October 2026.
 
 **Decision:**
 
@@ -138,7 +138,7 @@ Record material decisions here. Do not rewrite history; append superseding decis
 
 ## ADR-015 - Docker container inventory (proposal)
 
-**Status:** Proposed by Claude Code on 19 October 2026 for Codex to accept, change or reject. No code written.
+**Status:** Superseded by the accepted single-reporter design in ADR-019 (PR #8, 20 October 2026). The alternatives below remain as design history.
 
 **Constraint:** ADR-006 and ADR-012 rule out mounting a Docker socket into the web server. Container health must not be inferred from an HTTP probe (`TASK_BOARD.md`).
 
@@ -157,7 +157,7 @@ Record material decisions here. Do not rewrite history; append superseding decis
 
 ## ADR-016 - Application database backup and restore (Milestone 11)
 
-**Status:** Implemented by Claude Code on branch `claude/backup-restore` (stacked on `claude/service-health`) on 19 October 2026. Awaiting Codex review; not deployed.
+**Status:** Reviewed and merged in PR #3; live on Home GW, with verified backups and daily timer enabled on 20 October 2026.
 
 **Decision:**
 
@@ -166,7 +166,7 @@ Record material decisions here. Do not rewrite history; append superseding decis
 - **Integrity before publishing.** A backup is written to `<dest>.partial`, checked (`PRAGMA integrity_check`, `schema_migrations` present, schema version not newer than the build), made owner-only, renamed into place, and given a `.sha256` file. `verify` also compares the checksum file when it exists, because a modified file can still be a readable database.
 - **Refuse unknown futures.** A backup whose schema is newer than the running build is refused for restore (and cannot be produced by the same build). Older backups restore and the app migrates them forward on start (migrations are additive).
 - **Restore safety.** Restore verifies the backup first, requires `-force` to replace an existing database, saves the current database as a verified `.pre-restore-<time>` backup, stages the new file beside the target, verifies the staged copy, removes the old WAL and shared-memory files, then renames into place and verifies again. It refuses when another connection blocks a full WAL checkpoint. An idle connection from a running app is invisible to SQLite, so the supported path is `restore-oxnet.sh`, which stops the container first. The scripts run their short-lived containers as root with no network because the backup directory is root-only, and return ownership of `/data` to uid 10001 afterwards.
-- **Operations.** `deploy/home-gw/backup-oxnet.sh` (snapshot inside the running container, copy out, re-verify, prune to the newest `KEEP`), `restore-oxnet.sh`, and an optional systemd timer (`oxnetwork-backup.timer`, daily at 02:30 with up to 10 minutes of jitter). The timer is shipped but not installed.
+- **Operations.** `deploy/home-gw/backup-oxnet.sh` (snapshot inside the running container, copy out, re-verify, prune to the newest `KEEP`), `restore-oxnet.sh`, and a systemd timer (`oxnetwork-backup.timer`, daily at 02:30 with up to 10 minutes of jitter). The timer is enabled on Home GW.
 - **Not decided here.** Encryption of backups at rest, automatic off-host replication, and retention beyond a simple count. These involve key and destination choices that belong to the owner.
 
 **Reason:** Milestone 11 needs a documented, tested way to recover the application database, and the owner's standing item was a restore proven on a separate host. Using SQLite's own snapshot avoids both stopping the app and the corruption risk of copying a live WAL database, and removing session data means a stolen backup cannot be used to impersonate the owner.
@@ -175,7 +175,7 @@ Record material decisions here. Do not rewrite history; append superseding decis
 
 ## ADR-017 - OpenCode compute providers: read-only worker and session discovery (Milestone 8)
 
-**Status:** Implemented by Claude Code on branch `claude/opencode-adapter` (stacked on `claude/backup-restore`) on 19 October 2026. Awaiting Codex review; not deployed. The contract is in [OPENCODE.md](OPENCODE.md).
+**Status:** Reviewed and merged in PR #5; read-only OX-C-01 provider live on Home GW. The contract is in [OPENCODE.md](OPENCODE.md).
 
 **Decision:**
 
@@ -194,7 +194,7 @@ Record material decisions here. Do not rewrite history; append superseding decis
 
 ## ADR-018 - Automation run retention
 
-**Status:** Implemented by Claude Code on branch `claude/run-retention` on 19 October 2026 at the owner's request ("automation cleanup/retention"). Awaiting Codex review; not deployed.
+**Status:** Reviewed and merged in PR #7; live on Home GW since 20 October 2026.
 
 **Decision:**
 
@@ -210,11 +210,11 @@ Record material decisions here. Do not rewrite history; append superseding decis
 
 ## ADR-019 - Docker container inventory: implementation of ADR-015
 
-**Status:** Implemented by Claude Code on branch `claude/docker-inventory` on 19 October 2026 at the owner's request ("work on docker inventory"). This takes the place of the owner/Codex acceptance ADR-015 was waiting for, so **Codex should confirm or change it**. Not deployed; nothing runs unless a host opts in.
+**Status:** Accepted after Codex review, merged in PR #8 and live on Home GW and OX-C-01 since 20 October 2026. Other hosts remain opt-in. The Docker group is root-equivalent on each enrolled host.
 
 **Decision:** ADR-015 option 4 (an allow-list in front of the Docker socket) with one simplification: instead of a bridge process plus the existing collector, a single new program, `cmd/docker-reporter`, reads the socket and posts the result.
 
-- **Why one program.** A bridge needs a listener (loopback port or Unix socket) that something must be allowed to reach; the reporter needs none. It issues exactly one request, `GET /containers/json?all=1`, with a constant path, and sends only an allow-listed subset of fields. The unit grants it the `docker` group (root-equivalent) and removes every other privilege. The existing host collector stays Docker-free, as ADR-015 required. Whether the reporter should instead be a mode of `cmd/host-agent` remains open; keeping it separate preserves the guarantee that the metrics agent never touches Docker.
+- **Why one program.** A bridge needs a listener (loopback port or Unix socket) that something must be allowed to reach; the reporter needs none. It issues exactly one request, `GET /containers/json?all=1`, with a constant path, and sends only an allow-listed subset of fields. The unit grants it the `docker` group (root-equivalent) and removes every other privilege. The reporter is a separate binary by decision, keeping the existing metrics agent Docker-free as ADR-015 required.
 - **Data.** Container id (12 hex), name, image, state, status text, health (parsed from the status text, the only place the list endpoint exposes it), creation time, published ports (`ip:host->container/proto`), and the two Compose labels. Never environment variables, mounts, command lines, other labels or logs. Compose labels are untrusted text, so a value that is not a plain name is dropped.
 - **Server.** `POST /internal/v1/docker-report/{node-id}` with a per-node token from its own directory (`docker_agent.token_dir` or `OXNET_DOCKER_AGENT_TOKEN_DIR`, required to differ from the host-agent directory). Strict body: unknown fields, trailing data, more than 256 KiB, more than 300 containers, duplicate ids, control characters, unknown states all fail with 400. The node must exist in the Tailscale inventory. Live mode only.
 - **Storage.** Migration 009: `container_reports` (per node, report time) and `node_containers` (latest list, replaced whole in one transaction). A separate report row distinguishes "reported zero containers" from "never reported". Rows survive Tailscale refreshes (no foreign key into the inventory tables).
@@ -224,4 +224,4 @@ Record material decisions here. Do not rewrite history; append superseding decis
 
 **Reason:** Milestone 6 needs real containers on Node Detail, and ADR-006/ADR-012 forbid putting the Docker socket in the web server. A tiny single-purpose reporter on each opted-in host keeps the socket out of the exposed process and keeps secrets such as environment variables out of the control plane by construction.
 
-**Verification:** `go test -race` covers the reporter against a fake Unix-socket Docker engine (only `GET /containers/json?all=1` is ever requested; secrets in labels, commands and mounts never appear in the mapped report; unknown states and short ids are skipped), the server's token separation in both directions, strict body handling, never-reported versus empty versus stale, replacement semantics, survival of inventory refreshes, rejection of unknown nodes, and the integration states. Frontend tests cover the card states.
+**Verification:** `go test -race` covers the reporter against a fake Unix-socket Docker engine (only `GET /containers/json?all=1` is ever requested; secrets in labels, commands and mounts never appear in the mapped report; unknown states and short ids are skipped during mapping and prevent submission of a partial list), the server's token separation in both directions, strict body handling, never-reported versus empty versus stale, replacement semantics, survival of inventory refreshes, rejection of unknown nodes, and the integration states. Frontend tests cover the card states.

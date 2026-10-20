@@ -65,7 +65,7 @@ Acceptance: topology is generated from graph data and remains usable without ani
 - [x] Run history with step results.
 - [x] Append-only audit events (enforced by SQLite triggers).
 - [x] Automations screen, including create/edit, enable/disable and confirmed manual runs.
-- [x] Run retention: finished runs older than 90 days (configurable) are trimmed, keeping each workflow's newest 20; audit is never pruned (ADR-018; branch `claude/run-retention`).
+- [x] Run retention: finished runs older than 90 days (configurable) are trimmed, keeping each workflow's newest 20; audit is never pruned (ADR-018; merged in PR #7 and live on Home GW).
 - [ ] Not yet: run cancellation, retries, external notification channels (need secret storage) and role and scope checks (Milestone 10).
 
 Acceptance: a demo workflow can run end-to-end and produce auditable step results. Met: the simulated demo workflows run against demo inventory and record step outcomes and audit events.
@@ -86,11 +86,11 @@ Acceptance met for Home GW, OX-C-01, the OVH VPS and three Windows 11 PCs (DESKT
 ## Milestone 6 - Tailscale + Docker read-only
 
 - [x] Opt-in Tailscale read-only device discovery adapter (Home GW active with OAuth `devices:core:read`).
-- [x] Verified service health: fixed, operator-configured read-only HTTP probes, merged into the inventory snapshot (ADR-014; branch `claude/service-health`, awaiting Codex review and deployment).
+- [x] Verified service health: fixed, operator-configured read-only HTTP probes, merged into the inventory snapshot (ADR-014; oxnet.work and Authentik probes live and healthy on Home GW).
 - [ ] Reconcile discovered tailnet nodes with existing inventory.
-- [x] Docker inventory through a single-purpose reporter (ADR-019, built on ADR-015; opt-in per host, branch `claude/docker-inventory`, awaiting Codex confirmation).
+- [x] Docker inventory through a single-purpose reporter (ADR-019, built on ADR-015; PR #8 merged, live on Home GW and OX-C-01, opt-in elsewhere).
 - [x] Real containers on Node Detail (Containers card; shows reported, stale, empty and never-reported states).
-- [x] Integration health UI: `GET /api/v1/integrations` and an Integrations page (branch `claude/integration-health`, stacked on `claude/opencode-adapter`, awaiting Codex review).
+- [x] Integration health UI: `GET /api/v1/integrations` and an Integrations page (PR #6 merged and live).
 
 Acceptance: live private nodes and containers are visible; provider outage degrades gracefully.
 
@@ -106,13 +106,13 @@ Acceptance: owner can see which services are externally exposed and through what
 ## Milestone 8 - OpenCode compute
 
 - [x] OpenCode adapter contract finalized against deployed environment ([OPENCODE.md](OPENCODE.md), verified against the real server on OX-C-01, OpenCode 1.19.3).
-- [x] Live worker discovery (read-only; `internal/integrations/opencode`, ADR-017; branch `claude/opencode-adapter`, awaiting Codex review, not deployed).
+- [x] Live worker discovery (read-only; `internal/integrations/opencode`, ADR-017; PR #5 merged and OX-C-01 provider live).
 - [x] Live job discovery (root sessions across every project as jobs `running` or `idle`).
 - [ ] Submit/cancel only after security review.
 - [ ] Placement integration where appropriate.
 - [ ] Multi-node pool, primary election and CPU-pooled local models (design, needs more nodes).
 
-Acceptance: Compute page reflects real OpenCode worker/job state. Met in code and tests; it becomes true on Home GW only after deployment with `live-opencode.compose.yml` and a Tailscale grant allowing Home GW to reach OX-C-01 port 4096.
+Acceptance: Compute page reflects real OpenCode worker/job state. Home GW has `live-opencode.compose.yml` and a private Tailscale grant to OX-C-01 port 4096. Session counts are marked incomplete when any project read fails.
 
 ## Milestone 9 - safe actions
 
@@ -139,9 +139,9 @@ Public Pangolin exposure should not be enabled before this milestone is complete
 
 ## Milestone 11 - backup, polish, owner release
 
-- [x] Application DB backup/restore command (`oxnet-work backup|verify|restore`, ADR-016; branch `claude/backup-restore`, awaiting Codex review; Home GW scripts and an optional systemd timer are shipped but not deployed or installed).
-- [x] Restore test procedure ([docs/BACKUP_RESTORE.md](BACKUP_RESTORE.md)), executed once on 18 October 2026: a real Home GW backup restored on OX-C-01 and read back through the app. Still open from the standing list: restoring Authentik, certificates and secrets on a separate host, a second off-host copy, and repeating the app restore on Home GW itself after deployment.
-- [ ] settings/integration health views.
+- [x] Application DB backup/restore command (`oxnet-work backup|verify|restore`, ADR-016; PR #3 merged, verified live backup on Home GW, daily timer enabled).
+- [x] Restore test procedure ([docs/BACKUP_RESTORE.md](BACKUP_RESTORE.md)), executed once on 18 October 2026: a real Home GW app backup restored on OX-C-01 and read back through the app. Still open: a current encrypted off-host copy and a full restore including Authentik, certificates and secrets on a separate host.
+- [x] Integration health view (Milestone 6); settings view remains a separate future task.
 - [ ] error/empty/stale state polish.
 - [ ] tablet layout pass.
 - [ ] documentation pass.

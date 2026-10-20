@@ -1,12 +1,14 @@
 # Docker container inventory
 
-Read-only container visibility on Node Detail and on the Integrations page. Design and trade-offs: ADR-019 in `DECISIONS.md` (it builds on the proposal in ADR-015). **Opt-in per host; nothing here runs unless you install it.**
+Read-only container visibility on Node Detail and on the Integrations page. Design and trade-offs: ADR-019 in `DECISIONS.md` (it builds on the proposal in ADR-015). **Opt-in per host:** reporters currently run on Home GW and OX-C-01; other hosts have no reporter.
 
 ## What it shows
 
 For each host that has a reporter: container name, image, state (running, exited, restarting and so on), health result if the image defines a health check, creation time, published ports, and the Docker Compose project and service names. It reads **only** those fields. Environment variables, mounts, command lines, labels (other than the two Compose names), logs and networks are never collected. No container can be started, stopped or restarted from oxnet.work.
 
 A host that has never reported shows "No container report". A report older than 90 seconds is shown as stale, so a stopped reporter cannot leave containers looking current.
+
+If the Docker list has more than 300 entries or contains an entry the reporter cannot represent, the reporter does not submit a partial list. The last complete report goes stale instead. The reporter also rejects HTTP redirects, so its bearer token stays on the configured endpoint.
 
 ## How it works
 

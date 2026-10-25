@@ -12,6 +12,12 @@ Read [DEPLOYMENT_STATE.md](DEPLOYMENT_STATE.md), especially its latest dated sec
 - Separate read-only Docker reporters run on Home GW and OX-C-01. Each has its own token, independent of the host metrics token. Each reported seven containers at the last check. The Docker socket grants root-equivalent host access to the reporter account; enrol other Docker hosts only with that trade-off understood. No Docker actions are exposed.
 - Automations and audit are live. Finished workflow runs are retained for 90 days with a floor of the newest 20 per workflow; queued/running runs and audit events are not pruned. A failed prune is retried at the next scheduler tick. No destructive workflow action is enabled.
 
+## SSH and Vaultwarden access (verified 25 October 2026)
+
+- OX-C-01 has Vaultwarden at `https://ox-c-01.tail9a48c3.ts.net:8443/` on the tailnet; HTTPS returned 200. The Bitwarden extension must use that URL as its **Self-hosted** server, rather than `bitwarden.com`.
+- From Lee's Windows PC, SSH to OX-C-01 (`100.69.88.98`), Home GW (`100.71.184.10`) and OVH VPS (`100.123.16.3`) authenticated through Tailscale SSH with method `none`; this PC did not present a private key. The local `id_ed25519_oxc01` fallback key (fingerprint `SHA256:3/bpKgthdsI+kw3mD5Q0ZzdFtmcHzFysje6M4pmvt+0`) is not in those hosts' root `authorized_keys`. Do not describe that key as granting access to them.
+- A Bitwarden JSON import with that one existing key and three Tailscale SSH connection notes was prepared outside Git, in Lee's local `.ssh` directory. The owner must import it through Vaultwarden; afterward remove the plaintext import file. Never commit it or paste its contents into a log or chat.
+
 ## Operating commands and recovery
 
 Use **all seven** Compose files for future app changes: `compose.yml`, `private-edge.compose.yml`, `live-tailscale.compose.yml`, `live-host-agent.compose.yml`, `live-docker-reporter.compose.yml`, `live-opencode.compose.yml`, and `live-service-probes.compose.yml`. Include `--profile private-edge --env-file .env`. The private `.env`, `secrets/`, `certs/`, `opencode-servers.yml` and `service-probes.yml` are on Home GW; never commit or print credentials.
